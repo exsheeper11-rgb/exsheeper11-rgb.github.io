@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>元器件仓库 v7.3 BOM导入版</title>
+<style>
+    /* --- 1. 核心视觉风格 --- */
+    :root { 
+        --bg-body: #0f172a; 
+        --bg-card: #1e293b; 
+        --bg-input: #334155;
+        --bg-nav: rgba(15, 23, 42, 0.95);
+        --text-main: #f8fafc; 
+        --text-sub: #94a3b8;
+        --accent: #38bdf8;
+        --danger: #ef4444; 
+        --success: #10b981; 
+        --warning: #f59e0b;
+        --border: 1px solid rgba(255, 255, 255, 0.1); 
+        --radius: 12px;
+        --nav-height: 60px;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; outline: none; }
+    
+    html, body { 
+        height: 100%; width: 100%; overflow: hidden; 
+        background: var(--bg-body); 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+        color: var(--text-main); 
+        overscroll-behavior: none; position: fixed; left: 0; top: 0;
+    }
+
+    /* --- 2. 布局框架 --- */
+    .app { 
+        position: fixed; inset: 0; display: flex; flex-direction: column; 
+        height: 100%; max-width: 600px; margin: 0 auto; z-index: 1; background: var(--bg-body);
+    }
+    
+    /* 顶部导航 */
+    .navbar { 
+        flex-shrink: 0; height: 60px; padding: 0 16px; background: var(--bg-nav); backdrop-filter: blur(10px);
+        border-bottom: var(--border); display: flex; justify-content: space-between; align-items: center; z-index: 20;
+    }
+    .brand { font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 8px; letter-spacing: 0.5px; }
+    .nav-btns { display: flex; gap: 8px; }
+    
+    .btn-icon { 
+        width: 36px; height: 36px; border-radius: 8px; border: var(--border); 
+        background: rgba(255,255,255,0.05); color: var(--text-main); 
+        display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
+    }
+    .btn-icon:active { background: var(--accent); color: #000; border-color: var(--accent); }
+    
+    .btn-primary { 
+        background: var(--accent); color: #0f172a; font-weight: bold; padding: 0 16px; height: 36px; 
+        border-radius: 8px; border: none; display: flex; align-items: center; gap: 6px; cursor: pointer;
+    }
+    .btn-primary:active { opacity: 0.9; transform: scale(0.96); }
+
+    /* 内容视口 */
+    .viewport { 
+        flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px; padding-bottom: 90px;
+        scroll-behavior: smooth; position: relative; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch;
+    }
+    
+    .view-page { display: none; animation: fadeIn 0.3s ease; }
+    .view-page.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* --- 3. 页面元素 --- */
+    
+    /* 统计卡片 */
+    .stats-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .stat-card { 
+        background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 12px 16px; 
+        display: flex; flex-direction: column; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden;
+    }
+    .stat-card:active { transform: scale(0.98); background: #283648; }
+    .stat-card.active-filter { border-color: var(--accent); background: rgba(56, 189, 248, 0.1); }
+    .stat-card.alert.active-filter { border-color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+
+    .stat-label { font-size: 11px; color: var(--text-sub); font-weight: bold; text-transform: uppercase; margin-bottom: 4px; }
+    .stat-num { font-size: 24px; font-weight: 800; color: var(--text-main); }
+    .stat-card.alert .stat-num { color: var(--danger); }
+
+    /* 搜索与筛选 */
+    .search-row { 
+        display: flex; gap: 8px; position: sticky; top: 0; z-index: 10; 
+        background: var(--bg-body); padding: 10px 0; margin: 0 0 10px 0;
+    }
+    .search-wrap { position: relative; flex: 1; }
+    .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-sub); pointer-events: none; }
+    .search-input { 
+        width: 100%; height: 44px; background: var(--bg-input); border: var(--border); border-radius: 10px; 
+        padding: 0 36px; color: white; font-size: 16px; transition: border-color 0.2s;
+    }
+    .search-input:focus { border-color: var(--accent); }
+    .clear-btn { 
+        position: absolute; right: 0; top: 0; bottom: 0; width: 40px; display: flex; align-items: center; justify-content: center; 
+        color: var(--text-sub); cursor: pointer; display: none;
+    }
+    
+    .icon-btn-square {
+        width: 44px; height: 44px; background: var(--bg-input); border: var(--border); border-radius: 10px;
+        display: flex; align-items: center; justify-content: center; color: var(--text-sub); cursor: pointer;
+        flex-shrink: 0;
+    }
+    .icon-btn-square.active { color: var(--accent); border-color: var(--accent); }
+    .filter-select { 
+        height: 44px; background: var(--bg-input); border: var(--border); border-radius: 10px; 
+        color: white; padding: 0 12px; font-size: 14px; outline: none; max-width: 100px;
+    }
+
+    /* 列表卡片 */
+    .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media(min-width: 500px) { .grid { grid-template-columns: 1fr 1fr; } }
+
+    .card { 
+        background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 16px; 
+        position: relative; transition: transform 0.1s, background-color 0.2s;
+        user-select: none; -webkit-user-select: none; touch-action: pan-y; overflow: hidden; cursor: pointer;
+    }
+    .card.pressing { transform: scale(0.96); background: #283648; border-color: var(--accent); }
+    .card.selected { background: rgba(56, 189, 248, 0.15); border-color: var(--accent); }
+    
+    .check-mark { 
+        position: absolute; top: 10px; right: 10px; width: 22px; height: 22px; border-radius: 50%; 
+        background: var(--accent); color: #000; display: none; align-items: center; justify-content: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 5;
+    }
+    .card.selected .check-mark { display: flex; animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    @keyframes pop { from {transform: scale(0);} to {transform: scale(1);} }
+
+    .card-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .tag-row { display: flex; align-items: center; gap: 6px; }
+    .tag { font-size: 10px; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; color: var(--text-sub); }
+    .recent-dot { width: 6px; height: 6px; background: var(--success); border-radius: 50%; display: none; box-shadow: 0 0 5px var(--success); }
+    
+    .loc { font-family: monospace; font-size: 12px; color: var(--accent); font-weight: bold; padding: 2px 6px; border-radius: 4px; transition: background 0.2s; }
+    .loc:active { background: rgba(56,189,248,0.2); }
+    
+    .card-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px; line-height: 1.3; padding-right: 20px; word-break: break-all; }
+    .pkg { display: inline-block; font-size: 11px; color: var(--text-sub); background: rgba(0,0,0,0.2); padding: 1px 5px; border-radius: 4px; margin-bottom: 8px; }
+    
+    .link-icon {
+        position: absolute; top: 12px; right: 12px; color: var(--text-sub); opacity: 0.6;
+        padding: 4px; z-index: 2; transition: 0.2s;
+    }
+    .link-icon:active { color: var(--accent); opacity: 1; transform: scale(1.1); }
+    .card.selected .link-icon { display: none; }
+
+    .stock-bg { height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; margin: 8px 0; overflow: hidden; }
+    .stock-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+
+    .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+    .desc-text { font-size: 11px; color: #64748b; max-width: 55%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .qty-box { display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.2); border-radius: 6px; padding: 2px; }
+    .qty-btn { width: 36px; height: 36px; border: none; background: transparent; color: var(--text-sub); font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; touch-action: manipulation; }
+    .qty-btn:active { color: white; background: rgba(255,255,255,0.1); border-radius: 4px; }
+    .qty-val { font-size: 14px; font-weight: bold; min-width: 24px; text-align: center; }
+
+    /* --- 图表与工具 --- */
+    .chart-container { position: relative; width: 220px; height: 220px; margin: 30px auto; }
+    .chart-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; }
+    .chart-segment { cursor: pointer; transition: opacity 0.2s; }
+    .chart-segment:active { opacity: 0.7; }
+    .legend-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; background: var(--bg-card); padding: 8px 12px; border-radius: 8px; font-size: 12px; border: var(--border); color: var(--text-sub); cursor: pointer; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+    .tool-section { background: var(--bg-card); border: var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+    .tool-title { font-weight: bold; font-size: 15px; margin-bottom: 12px; display: flex; justify-content: space-between; color: var(--text-main); }
+    .resistor-body { height: 50px; background: linear-gradient(to bottom, #fca5a5, #ef4444); border-radius: 25px; position: relative; display: flex; justify-content: space-evenly; align-items: center; margin: 20px 0; box-shadow: inset 0 -5px 10px rgba(0,0,0,0.2); }
+    .res-band { width: 10px; height: 50px; background: #000; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.3); transition: transform 0.1s; }
+    .res-band:active { transform: scale(1.2); }
+    .color-grid { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
+    .c-dot { width: 24px; height: 24px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.2); }
+
+    /* --- 底部菜单 --- */
+    .tab-bar {
+        flex-shrink: 0; height: var(--nav-height); background: var(--bg-nav); backdrop-filter: blur(12px);
+        border-top: var(--border); display: flex; justify-content: space-around; align-items: center;
+        position: absolute; bottom: 0; left: 0; right: 0; z-index: 50; padding-bottom: env(safe-area-inset-bottom);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .tab-btn { background: none; border: none; color: var(--text-sub); display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; padding: 8px; width: 100%; cursor: pointer; }
+    .tab-btn.active { color: var(--accent); }
+    .tab-btn svg { width: 22px; height: 22px; stroke-width: 2; }
+
+    /* --- 批量栏 --- */
+    .batch-bar {
+        position: absolute; bottom: 0; left: 0; right: 0; background: #1e293b; border-top: 1px solid var(--accent);
+        padding: 12px 16px; padding-bottom: max(12px, env(safe-area-inset-bottom));
+        display: flex; justify-content: space-between; align-items: center;
+        transform: translateY(100%); transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 60; box-shadow: 0 -4px 25px rgba(0,0,0,0.6);
+    }
+    .batch-bar.show { transform: translateY(0); }
+    .batch-info { display: flex; flex-direction: column; }
+    .batch-count { color: var(--accent); font-weight: 800; font-size: 16px; }
+    .batch-label { color: var(--text-sub); font-size: 10px; }
+    .batch-actions { display: flex; gap: 8px; }
+    .b-btn { padding: 0 14px; height: 38px; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; border: none; display: flex; align-items: center; gap: 4px; }
+    .b-btn-outline { background: rgba(255,255,255,0.05); color: var(--text-main); border: 1px solid rgba(255,255,255,0.1); }
+    .b-btn-danger { background: rgba(239,68,68,0.2); color: #fca5a5; }
+
+    /* --- 弹窗 --- */
+    .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); z-index: 100; display: none; justify-content: center; align-items: center; overscroll-behavior: contain; }
+    .modal-mask.open { display: flex; }
+    .modal-box { width: 90%; max-width: 340px; background: #1e293b; border: var(--border); border-radius: 16px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.6); animation: scaleIn 0.2s; max-height: 85vh; overflow-y: auto; }
+    @keyframes scaleIn { from {transform: scale(0.95); opacity: 0;} to {transform: scale(1); opacity: 1;} }
+    
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 12px; color: var(--text-sub); margin-bottom: 6px; }
+    .form-input { 
+        width: 100%; background: #334155; border: 1px solid rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; color: white; 
+        font-size: 16px; 
+    }
+    .form-input:focus { border-color: var(--accent); }
+    
+    .sheet-modal { align-items: flex-end; }
+    .sheet-box { 
+        width: 100%; max-width: 600px; background: #1e293b; border-top: var(--border); 
+        border-radius: 20px 20px 0 0; padding: 24px; padding-bottom: max(24px, env(safe-area-inset-bottom));
+        transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.1, 0.7, 0.1, 1);
+    }
+    .modal-mask.open .sheet-box { transform: translateY(0); }
+    .action-btn { 
+        width: 100%; padding: 16px; margin-bottom: 10px; background: rgba(255,255,255,0.03); 
+        border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 16px; cursor: pointer;
+    }
+    
+    /* Toast */
+    .toast { 
+        position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); 
+        background: #fff; color: #000; padding: 8px 20px; border-radius: 30px; 
+        font-size: 13px; opacity: 0; pointer-events: none; transition: 0.3s; z-index: 200; font-weight: bold; 
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3); display: flex; align-items: center; gap: 12px;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+    .toast-btn { color: var(--accent); font-weight: 800; cursor: pointer; padding: 4px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+    <!-- 顶部导航 -->
+    <nav class="navbar">
+        <div class="brand">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+            元器件仓库 <span style="font-size:10px; opacity:0.5; margin-left:4px;">v7.3</span>
+        </div>
+        <div class="nav-btns">
+            <div class="btn-icon" onclick="triggerImport()" title="导入 (JSON/BOM CSV)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
+            <div class="btn-icon" onclick="openExport()" title="导出"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></div>
+            <button class="btn-primary" onclick="openModal()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> 添加</button>
+        </div>
+    </nav>
+
+    <div class="viewport">
+        <!-- 页面 1: 仓库 -->
+        <div id="view-home" class="view-page active">
+            <!-- 统计面板 -->
+            <div class="stats-panel">
+                <div class="stat-card" id="card-total" onclick="quickFilter('All')">
+                    <div class="stat-label">总库存种类</div>
+                    <div class="stat-num" id="st-total">0</div>
+                </div>
+                <div class="stat-card alert" id="card-low" onclick="quickFilter('Low')">
+                    <div class="stat-label">⚠️ 缺货 (<5)</div>
+                    <div class="stat-num" id="st-low" style="color: var(--danger);">0</div>
+                </div>
+            </div>
+
+            <!-- 搜索栏 -->
+            <div class="search-row">
+                <div class="search-wrap">
+                    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" id="search-inp" class="search-input" placeholder="搜索名称、型号、位置..." oninput="render()" autocomplete="off">
+                    <div id="search-clear" class="clear-btn" onclick="clearSearch()" style="display: none;">✕</div>
+                </div>
+                <div class="icon-btn-square" id="sort-btn" onclick="toggleSort()" title="排序">
+                    <svg id="sort-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+                <select id="filter-sel" class="filter-select" onchange="render()">
+                    <option value="All">全部</option>
+                    <option value="MCU">主控</option>
+                    <option value="Sensor">传感器</option>
+                    <option value="Passive">阻容感</option>
+                    <option value="Module">模块</option>
+                    <option value="Conn">连接器</option>
+                    <option value="Power">电源</option>
+                    <option value="Other">其他</option>
+                </select>
+            </div>
+
+            <div id="grid" class="grid"></div>
+            <div id="empty-state" style="text-align:center; color:var(--text-sub); padding:60px 0; display:none;">
+                <div style="font-size:48px; margin-bottom:16px; opacity:0.5;">📦</div>
+                <div style="font-size:16px; font-weight:bold; margin-bottom:8px;">暂无匹配数据</div>
+                <div style="font-size:12px; opacity:0.6;">点击右上角 "添加" 按钮入库</div>
+            </div>
+        </div>
+
+        <!-- 页面 2: 统计 -->
+        <div id="view-stats" class="view-page">
+            <div class="tool-section">
+                <div class="tool-title">库存分布</div>
+                <div class="chart-container">
+                    <svg id="donut-chart" width="220" height="220" viewBox="0 0 100 100" style="transform: rotate(-90deg);"></svg>
+                    <div class="chart-center">
+                        <div style="font-size:28px; font-weight:800; color:var(--text-main)" id="chart-total">0</div>
+                        <div style="font-size:10px; color:var(--text-sub)">种类</div>
+                    </div>
+                </div>
+                <div id="legend-container" class="legend-grid"></div>
+            </div>
+        </div>
+
+        <!-- 页面 3: 工具 -->
+        <div id="view-tools" class="view-page">
+            <div class="tool-section">
+                <div class="tool-title">🏷️ 封装尺寸参考</div>
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <div id="pkg-visual" style="width:60px; height:60px; border:1px solid #fff; display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--bg-body);">?</div>
+                    <div style="flex:1">
+                        <input class="form-input" id="pkg-inp" placeholder="输入 0805, SOT23..." oninput="calcPkg()">
+                        <div id="pkg-res" style="margin-top:8px; color:var(--accent); font-weight:bold; height:20px;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tool-section">
+                <div class="tool-title">
+                    <span>🌈 色环电阻计算</span>
+                    <button id="band-btn" onclick="toggleBands()" style="font-size:11px; background:rgba(255,255,255,0.1); border:none; color:white; padding:2px 8px; border-radius:4px;">4环</button>
+                </div>
+                <div class="resistor-body" id="res-body"></div>
+                <div style="text-align:center; font-size:24px; font-weight:bold; color:var(--accent); margin:10px 0;" id="res-val">1 kΩ</div>
+                <div class="color-grid" id="color-palette"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部菜单 -->
+    <nav class="tab-bar" id="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('home', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            仓库
+        </button>
+        <button class="tab-btn" onclick="switchTab('stats', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+            统计
+        </button>
+        <button class="tab-btn" onclick="switchTab('tools', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+            工具
+        </button>
+    </nav>
+
+    <!-- 批量操作栏 -->
+    <div id="batch-bar" class="batch-bar">
+        <div class="batch-info">
+            <span class="batch-count" id="sel-count">0</span>
+            <span class="batch-label">已选择</span>
+        </div>
+        <div class="batch-actions">
+            <button onclick="toggleSelectAll()" class="b-btn b-btn-outline" id="btn-select-all">全选</button>
+            <button onclick="batchCopy()" class="b-btn b-btn-outline"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> 复制</button>
+            <button onclick="batchDel()" class="b-btn b-btn-danger"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+            <div onclick="exitSelection()" style="display:flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,0.05); margin-left:8px; cursor:pointer;">✕</div>
+        </div>
+    </div>
+</div>
+
+<!-- 弹窗：添加/编辑 -->
+<div id="modal-mask" class="modal-mask">
+    <div class="modal-box">
+        <h3 style="margin-bottom:20px; font-weight:800; font-size:18px; display:flex; justify-content:space-between;">
+            <span>📝 元件信息</span>
+            <span onclick="closeModal()" style="font-weight:400; font-size:24px; color:var(--text-sub); cursor:pointer;">×</span>
+        </h3>
+        <input type="hidden" id="e-id">
+        <div class="form-group"><label class="form-label">名称 <span style="color:var(--danger)">*</span></label><input class="form-input" id="e-name" placeholder="如 ESP32-C3"></div>
+        
+        <div style="display:flex; gap:12px;">
+            <div class="form-group" style="flex:1"><label class="form-label">封装</label><input class="form-input" id="e-model" placeholder="SOP8"></div>
+            <div class="form-group" style="flex:1"><label class="form-label">储位</label><input class="form-input" id="e-loc" placeholder="A-01"></div>
+        </div>
+        
+        <div class="form-group"><label class="form-label">分类</label>
+            <select class="form-input" id="e-cat">
+                <option value="MCU">主控芯片</option><option value="Sensor">传感器</option><option value="Passive">阻容感</option>
+                <option value="Module">模块</option><option value="Conn">连接器</option><option value="Power">电源</option><option value="Other">其他</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">参考链接 (数据手册/购买)</label>
+            <input class="form-input" id="e-link" placeholder="https://..." style="font-size:12px;">
+        </div>
+
+        <div class="form-group"><label class="form-label">数量</label><input type="number" class="form-input" id="e-qty" value="1"></div>
+        <div class="form-group"><label class="form-label">备注</label><textarea class="form-input" id="e-desc" rows="2" placeholder="参数、购买时间等"></textarea></div>
+        
+        <div style="display:flex; gap:12px; margin-top:24px;">
+            <button onclick="delItem()" id="btn-del" style="background:rgba(239,68,68,0.2); color:#fca5a5; border:none; border-radius:8px; padding:0 16px; display:none; font-weight:bold; cursor:pointer;">删除</button>
+            <button onclick="saveItem()" style="background:var(--accent); color:#0f172a; border:none; border-radius:8px; height:44px; flex:1; font-weight:bold; cursor:pointer;">保存</button>
+        </div>
+    </div>
+</div>
+
+<div id="sheet-mask" class="modal-mask sheet-modal" onclick="closeExport()">
+    <div class="sheet-box" onclick="event.stopPropagation()">
+        <h3 style="margin-bottom:20px; font-weight:800; font-size:18px;">数据操作</h3>
+        <div class="action-btn" onclick="doExport('shopping')">
+            <div>
+                <div style="color:var(--warning); font-weight:bold;">📋 复制缺货清单</div>
+                <div style="font-size:12px; color:var(--text-sub);">导出数量少于 5 的项目</div>
+            </div>
+        </div>
+        <div class="action-btn" onclick="doExport('copy')">
+            <div>
+                <div style="color:var(--accent); font-weight:bold;">📄 复制数据 (备份)</div>
+                <div style="font-size:12px; color:var(--text-sub);">复制到剪贴板，手动保存</div>
+            </div>
+        </div>
+        <div class="action-btn" onclick="doExport('download')">
+            <div>
+                <div style="color:var(--success); font-weight:bold;">💾 下载备份 (JSON)</div>
+                <div style="font-size:12px; color:var(--text-sub);">保存为文件</div>
+            </div>
+        </div>
+        <div class="action-btn" onclick="doExport('app')">
+            <div>
+                <div style="color:#a78bfa; font-weight:bold;">📱 生成独立 APP</div>
+                <div style="font-size:12px; color:var(--text-sub);">保存为包含数据的 HTML</div>
+            </div>
+        </div>
+        <div onclick="closeExport()" style="text-align:center; padding:16px; color:var(--text-sub); border-top:var(--border); margin-top:10px; cursor:pointer;">取消</div>
+    </div>
+</div>
+
+<div id="toast" class="toast">
+    <span id="toast-msg">操作成功</span>
+    <div id="toast-undo" class="toast-btn" style="display:none" onclick="undoDelete()">撤销</div>
+</div>
+<!-- 修改 accept 属性以支持 CSV -->
+<input type="file" id="file-input" accept=".json,.csv" style="display:none" onchange="onFileRead(event)">
+
+<script>
+    const PRELOAD = [
+      {"id": 1, "name": "ESP32-WROOM", "model": "Module", "cat": "MCU", "qty": 5, "loc": "A-01", "desc": "WiFi+BT", "link": ""},
+      {"id": 2, "name": "10K Resistor", "model": "0603", "cat": "Passive", "qty": 200, "loc": "C-05", "desc": "1%", "link": ""}
+    ];
+    
+    const KEY = 'components_v7_0_final';
+    let db = [];
+    let selectMode = false;
+    let selected = new Set();
+    let touchStart = {x:0, y:0};
+    let longPressTimer = null;
+    let isDrag = false;
+    let hasLongPressed = false; 
+    let sortMode = 'time'; 
+    let activeFilter = 'All'; 
+    let deletedBuffer = null; 
+
+    function init() {
+        try {
+            let d = localStorage.getItem(KEY);
+            if(!d) d = localStorage.getItem('components_v6_7_final'); 
+            if(!d) d = localStorage.getItem('components_v6_6_final'); 
+            db = d ? JSON.parse(d) : (PRELOAD || []);
+        } catch(e) { db=[]; }
+        render();
+        initTools();
+    }
+    
+    function save() {
+        localStorage.setItem(KEY, JSON.stringify(db));
+        render();
+    }
+
+    function switchTab(id, el) {
+        document.querySelectorAll('.view-page').forEach(p=>p.classList.remove('active'));
+        document.getElementById('view-'+id).classList.add('active');
+        document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+        el.classList.add('active');
+        if(id === 'stats') renderChart();
+        if(id === 'home') render();
+    }
+
+    function toggleSort() {
+        if(sortMode === 'time') sortMode = 'qty';
+        else if(sortMode === 'qty') sortMode = 'name';
+        else sortMode = 'time';
+        const btn = document.getElementById('sort-btn');
+        const icon = document.getElementById('sort-icon');
+        btn.classList.add('active');
+        setTimeout(()=>btn.classList.remove('active'), 200);
+        if(sortMode === 'time') icon.innerHTML = '<circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>';
+        else if(sortMode === 'qty') icon.innerHTML = '<path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path>';
+        else icon.innerHTML = '<path d="M15 12h-6"></path><path d="M15 8h-6"></path><path d="M19 18H5"></path>';
+        toast(sortMode === 'time' ? '按时间排序' : (sortMode === 'qty' ? '按数量排序' : '按名称排序'));
+        render();
+    }
+
+    function quickFilter(type) {
+        const cTotal = document.getElementById('card-total');
+        const cLow = document.getElementById('card-low');
+        cTotal.classList.remove('active-filter');
+        cLow.classList.remove('active-filter');
+        if(type === 'Low') {
+            if(activeFilter === 'Low') { activeFilter = 'All'; cTotal.classList.add('active-filter'); }
+            else { activeFilter = 'Low'; cLow.classList.add('active-filter'); document.getElementById('filter-sel').value = 'All'; }
+        } else {
+            activeFilter = 'All'; cTotal.classList.add('active-filter'); document.getElementById('filter-sel').value = 'All';
+        }
+        render();
+    }
+
+    function render() {
+        document.getElementById('st-total').innerText = db.length;
+        let low = db.filter(i=>i.qty<5).length;
+        document.getElementById('st-low').innerText = low;
+        document.getElementById('st-low').style.color = low>0 ? 'var(--danger)' : 'var(--text-sub)';
+
+        const grid = document.getElementById('grid');
+        const search = document.getElementById('search-inp').value.toLowerCase();
+        let catFilter = document.getElementById('filter-sel').value;
+        if(activeFilter === 'Low') catFilter = 'All';
+
+        document.getElementById('search-clear').style.display = search ? 'flex' : 'none';
+        
+        let list = db.filter(i => {
+            if(activeFilter === 'Low' && i.qty >= 5) return false;
+            if(activeFilter !== 'Low' && catFilter !== 'All' && i.cat !== catFilter) return false;
+            return (i.name+i.model+i.loc+i.desc).toLowerCase().includes(search);
+        });
+
+        list.sort((a, b) => {
+            if(sortMode === 'qty') return a.qty - b.qty;
+            if(sortMode === 'name') return a.name.localeCompare(b.name);
+            return (b.time||0) - (a.time||0);
+        });
+        
+        if(list.length===0) { document.getElementById('empty-state').style.display='block'; grid.innerHTML=''; return; }
+        document.getElementById('empty-state').style.display='none';
+        
+        const now = Date.now();
+        grid.innerHTML = '';
+        list.forEach(i => {
+            const el = document.createElement('div');
+            const isSel = selected.has(i.id);
+            el.className = `card ${isSel?'selected':''}`;
+            el.dataset.id = i.id; 
+            let color = 'var(--success)';
+            if(i.qty<=0) color='#64748b'; else if(i.qty<5) color='var(--danger)';
+            let pct = Math.min(100, (i.qty/20)*100);
+            const isRecent = i.time && (now - i.time < 86400000);
+            
+            el.onpointerdown = (e)=>onDown(e, i.id);
+            el.onpointerup = (e)=>onUp(e, i.id);
+            el.onpointermove = onMove;
+            el.onpointercancel = onCancel;
+            el.oncontextmenu = (e)=>{ e.preventDefault(); return false; };
+            
+            let linkHtml = '';
+            if(i.link && i.link.startsWith('http')) {
+                linkHtml = `<a href="${i.link}" target="_blank" class="link-icon" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>`;
+            }
+
+            el.innerHTML = `
+                ${linkHtml}
+                <div class="check-mark"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+                <div class="card-meta">
+                    <div class="tag-row">
+                        <div class="recent-dot" style="display:${isRecent?'block':'none'}"></div>
+                        <span class="tag">${i.cat}</span>
+                    </div>
+                    <span class="loc" onpointerdown="event.stopPropagation()" onpointerup="event.stopPropagation()" onclick="event.stopPropagation();copy('${i.loc}')">${i.loc||'-'}</span>
+                </div>
+                <div class="card-title">${i.name}</div>
+                ${i.model?`<span class="pkg">${i.model}</span>`:''}
+                <div class="stock-bg"><div class="stock-fill" style="width:${pct}%; background:${color}"></div></div>
+                <div class="card-footer">
+                    <div class="desc-text">${i.desc||''}</div>
+                    <div class="qty-box" onpointerdown="event.stopPropagation()" onpointerup="event.stopPropagation()" onclick="event.stopPropagation()">
+                        <button class="qty-btn" onclick="modQty(${i.id},-1)">-</button>
+                        <div class="qty-val" style="color:${color}">${i.qty}</div>
+                        <button class="qty-btn" onclick="modQty(${i.id},1)">+</button>
+                    </div>
+                </div>
+            `;
+            grid.appendChild(el);
+        });
+        updateBatchBarState();
+    }
+    
+    function updateBatchBarState() {
+        const bar = document.getElementById('batch-bar');
+        const tabs = document.getElementById('tab-bar');
+        if(selectMode) {
+            bar.classList.add('show');
+            tabs.style.transform = 'translateY(100%)'; 
+            document.getElementById('sel-count').innerText = selected.size;
+            const totalVisible = document.querySelectorAll('.card').length;
+            const isAll = totalVisible > 0 && selected.size === totalVisible;
+            document.getElementById('btn-select-all').innerText = isAll ? '全不选' : '全选';
+        } else {
+            bar.classList.remove('show');
+            tabs.style.transform = 'translateY(0)';
+        }
+    }
+
+    function modQty(id, d) {
+        if(navigator.vibrate) navigator.vibrate(10);
+        let i = db.find(x=>x.id==id);
+        if(i) { i.qty = Math.max(0, parseInt(i.qty)+d); i.time = Date.now(); save(); }
+    }
+
+    function onDown(e, id) {
+        touchStart = {x:e.clientX, y:e.clientY};
+        isDrag = false; hasLongPressed = false; 
+        const card = e.currentTarget;
+        card.classList.add('pressing'); 
+        if(!selectMode) {
+            longPressTimer = setTimeout(()=>{
+                if(!isDrag) {
+                    hasLongPressed = true; card.classList.remove('pressing');
+                    if(navigator.vibrate) navigator.vibrate(50);
+                    selectMode = true; selected.add(id); card.classList.add('selected');
+                    updateBatchBarState();
+                }
+            }, 500);
+        }
+    }
+
+    function onMove(e) {
+        if(Math.abs(e.clientX-touchStart.x)>15 || Math.abs(e.clientY-touchStart.y)>15) {
+            isDrag = true; clearTimeout(longPressTimer); e.currentTarget.classList.remove('pressing');
+        }
+    }
+    
+    function onCancel(e) { isDrag = true; clearTimeout(longPressTimer); e.currentTarget.classList.remove('pressing'); }
+
+    function onUp(e, id) {
+        clearTimeout(longPressTimer); e.currentTarget.classList.remove('pressing');
+        if(isDrag) return;
+        if(selectMode) { if(!hasLongPressed) toggleSelect(id); } else { if(!hasLongPressed) openModal(id); }
+        hasLongPressed = false;
+    }
+    
+    function toggleSelect(id) { 
+        if(selected.has(id)) selected.delete(id); else selected.add(id); 
+        if(selected.size==0) exitSelection(); else render(); 
+    }
+    
+    function exitSelection() { selectMode=false; selected.clear(); render(); }
+    
+    function toggleSelectAll() {
+        const gridItems = document.querySelectorAll('.card');
+        const visibleIds = Array.from(gridItems).map(el => parseFloat(el.dataset.id));
+        if(selected.size === visibleIds.length) selected.clear();
+        else visibleIds.forEach(id => selected.add(id));
+        render();
+    }
+
+    function batchCopy() {
+        if(selected.size === 0) return;
+        let count = 0; let newItems = [];
+        db.forEach(item => {
+            if(selected.has(item.id)) {
+                let copy = JSON.parse(JSON.stringify(item));
+                copy.id = Date.now() + Math.random(); 
+                copy.name = copy.name + " (副本)"; copy.link = ""; copy.time = Date.now();
+                newItems.push(copy); count++;
+            }
+        });
+        db = [...db, ...newItems]; save(); exitSelection(); toast(`已复制 ${count} 个元件`);
+    }
+
+    function batchDel() {
+        if(selected.size === 0) return;
+        deletedBuffer = db.filter(i => selected.has(i.id));
+        db = db.filter(i=>!selected.has(i.id)); 
+        const count = deletedBuffer.length;
+        exitSelection(); save(); 
+        toast(`已删除 ${count} 项`, true); 
+    }
+
+    function delItem() { 
+        const id = document.getElementById('e-id').value;
+        const item = db.find(x=>x.id == id); 
+        if(item) {
+            deletedBuffer = [item];
+            db = db.filter(x=>x.id != id); 
+            save(); closeModal(); 
+            toast('已删除', true);
+        } else {
+            alert('删除失败：未找到项目');
+        }
+    }
+
+    function undoDelete() {
+        if(!deletedBuffer || deletedBuffer.length === 0) return;
+        db = [...db, ...deletedBuffer];
+        deletedBuffer = null;
+        save();
+        toast('已撤销 ✅');
+    }
+
+    // --- 图表 ---
+    function renderChart() {
+        const svg = document.getElementById('donut-chart');
+        const lgd = document.getElementById('legend-container');
+        const t = db.length;
+        document.getElementById('chart-total').innerText = t;
+        if(t===0) return;
+        let c = {}; db.forEach(i=>c[i.cat]=(c[i.cat]||0)+1);
+        let colors = {'MCU':'#38bdf8','Sensor':'#8b5cf6','Passive':'#94a3b8','Module':'#10b981','Conn':'#f59e0b','Power':'#ef4444','Other':'#64748b'};
+        let acc=0, svgH='', lgdH='';
+        Object.keys(c).forEach(k => {
+            let p = (c[k]/t)*100;
+            let col = colors[k] || '#fff';
+            svgH += `<circle class="chart-segment" cx="50" cy="50" r="15.9" fill="transparent" stroke="${col}" stroke-width="5" stroke-dasharray="${p} ${100-p}" stroke-dashoffset="-${acc}"></circle>`;
+            acc += p;
+            lgdH += `<div class="legend-item"><div class="legend-dot" style="background:${col}"></div><div>${k} (${c[k]})</div></div>`;
+        });
+        svg.innerHTML = svgH;
+        lgd.innerHTML = lgdH;
+    }
+
+    // --- 工具 ---
+    const pkgMap = {'0402':'1.0x0.5','0603':'1.6x0.8','0805':'2.0x1.25','1206':'3.2x1.6','SOT23':'2.9x1.3','SOP8':'4.9x3.9'};
+    function calcPkg() {
+        let v = document.getElementById('pkg-inp').value.toUpperCase().replace(/\s/g,'');
+        let r = pkgMap[v];
+        if(r) {
+            document.getElementById('pkg-res').innerText = r+' mm';
+            let [w,h] = r.split('x');
+            let vis = document.getElementById('pkg-visual');
+            vis.style.width = (w*10)+'px'; vis.style.height = (h*10)+'px'; vis.style.background = 'var(--accent)'; vis.innerText='';
+        } else {
+            document.getElementById('pkg-res').innerText = '';
+            document.getElementById('pkg-visual').style.width='60px'; document.getElementById('pkg-visual').style.height='60px'; document.getElementById('pkg-visual').style.background='none'; document.getElementById('pkg-visual').innerText='?';
+        }
+    }
+    
+    const rColors = ['black','brown','red','orange','yellow','green','blue','violet','grey','white','gold','silver'];
+    const rVals = {black:0,brown:1,red:2,orange:3,yellow:4,green:5,blue:6,violet:7,grey:8,white:9};
+    const rMuls = {black:1,brown:10,red:100,orange:1000,yellow:10000,green:100000,blue:1000000,gold:0.1,silver:0.01};
+    let is5Band = false; let bands = [1, 0, 2, 10]; let activeBand = 0;
+    
+    function initTools() { renderResistorUI(); }
+    function toggleBands() { is5Band=!is5Band; bands = is5Band?[1,0,0,2,10]:[1,0,2,10]; activeBand=0; document.getElementById('band-btn').innerText=is5Band?'5环':'4环'; renderResistorUI(); }
+    function renderResistorUI() {
+        const body = document.getElementById('res-body'); body.innerHTML = '';
+        bands.forEach((bIdx, i) => {
+            let d = document.createElement('div'); d.className = 'res-band'; d.style.backgroundColor = rColors[bIdx];
+            if(i===activeBand) { d.style.boxShadow = '0 0 10px white'; d.style.transform = 'scale(1.2)'; }
+            d.onclick = () => { activeBand=i; renderResistorUI(); };
+            body.appendChild(d);
+        });
+        const pal = document.getElementById('color-palette'); pal.innerHTML = '';
+        [0,1,2,3,4,5,6,7,8,9,10,11].forEach(ci => {
+            let c = document.createElement('div'); c.className='c-dot'; c.style.backgroundColor = rColors[ci];
+            c.onclick = () => { bands[activeBand]=ci; renderResistorUI(); }; pal.appendChild(c);
+        });
+        calcOhms();
+    }
+    function calcOhms() {
+        let val = 0; let mIdx = is5Band ? bands[3] : bands[2]; let mul = rMuls[rColors[mIdx]] || 0;
+        if(is5Band) val = (rVals[rColors[bands[0]]]*100 + rVals[rColors[bands[1]]]*10 + rVals[rColors[bands[2]]]) * mul;
+        else val = (rVals[rColors[bands[0]]]*10 + rVals[rColors[bands[1]]]) * mul;
+        let s = val + ' Ω';
+        if(val>=1000) s = (val/1000) + ' kΩ';
+        if(val>=1000000) s = (val/1000000) + ' MΩ';
+        document.getElementById('res-val').innerText = s;
+    }
+
+    // --- 弹窗/导出 ---
+    function openExport() { document.getElementById('sheet-mask').classList.add('open'); }
+    function closeExport() { document.getElementById('sheet-mask').classList.remove('open'); }
+    function openModal(id) {
+        document.getElementById('modal-mask').classList.add('open');
+        if(id) {
+            let i = db.find(x=>x.id==id);
+            document.getElementById('e-id').value=id; 
+            document.getElementById('e-name').value=i.name; 
+            document.getElementById('e-model').value=i.model; 
+            document.getElementById('e-loc').value=i.loc; 
+            document.getElementById('e-cat').value=i.cat; 
+            document.getElementById('e-qty').value=i.qty; 
+            document.getElementById('e-desc').value=i.desc||'';
+            document.getElementById('e-link').value=i.link||''; 
+            document.getElementById('btn-del').style.display='block';
+        } else {
+            document.getElementById('e-id').value=''; 
+            document.getElementById('e-name').value=''; 
+            document.getElementById('e-model').value=''; 
+            document.getElementById('e-loc').value=''; 
+            document.getElementById('e-qty').value=1; 
+            document.getElementById('e-desc').value='';
+            document.getElementById('e-link').value='';
+            document.getElementById('btn-del').style.display='none';
+        }
+    }
+    function closeModal() { document.getElementById('modal-mask').classList.remove('open'); }
+    
+    // --- 手动添加/编辑逻辑 ---
+    function saveItem() {
+        let id = document.getElementById('e-id').value;
+        const name = document.getElementById('e-name').value.trim();
+        const model = document.getElementById('e-model').value.trim();
+        const loc = document.getElementById('e-loc').value.trim();
+        const cat = document.getElementById('e-cat').value;
+        const desc = document.getElementById('e-desc').value.trim();
+        const link = document.getElementById('e-link').value.trim();
+        const qty = parseInt(document.getElementById('e-qty').value)||0;
+
+        if(!name) { alert('请输入名称'); return; }
+
+        // 合并逻辑
+        if (!id) {
+            let duplicateIndex = db.findIndex(x => 
+                x.name === name && 
+                x.model === model && 
+                x.loc === loc && 
+                x.cat === cat && 
+                x.desc === desc && 
+                x.link === link
+            );
+
+            if (duplicateIndex > -1) {
+                let oldQty = parseInt(db[duplicateIndex].qty) || 0;
+                let addedQty = qty;
+                db[duplicateIndex].qty = oldQty + addedQty;
+                db[duplicateIndex].time = Date.now(); 
+                save(); closeModal();
+                if(activeFilter === 'Low') quickFilter('All');
+                if(sortMode === 'time') render();
+                toast(`检测到相同元件，数量已合并: +${addedQty} ✅`);
+                return;
+            }
+        }
+
+        let item = {
+            id: id ? parseFloat(id) : Date.now(),
+            name: name,
+            model: model,
+            loc: loc,
+            cat: cat,
+            qty: qty,
+            desc: desc,
+            link: link,
+            time: Date.now()
+        };
+        if(id) { 
+            let idx=db.findIndex(x=>x.id==id); 
+            if(idx>-1) db[idx]=item; 
+        } else db.push(item);
+        
+        save(); closeModal();
+        if(activeFilter === 'Low') quickFilter('All');
+        if(sortMode === 'time') render();
+        if(!id) toast('添加成功');
+    }
+    
+    function doExport(type) {
+        closeExport();
+        const date = new Date().toISOString().slice(0,10).replace(/-/g,'');
+        
+        if(type==='shopping') {
+            const list = db.filter(i=>i.qty < 5);
+            if(list.length === 0) { toast('没有缺货元件'); return; }
+            let text = "🛒 采购清单 (" + date + "):\n";
+            list.forEach(i => {
+                text += `- ${i.name} [${i.model||'无封装'}] (库存: ${i.qty})\n`;
+            });
+            copy(text);
+        } else if(type==='copy') {
+            const str = JSON.stringify(db,null,2);
+            copy(str);
+        } else if(type==='download') {
+            const str = JSON.stringify(db,null,2);
+            downloadFile(str, `元件库_${date}.json`, 'application/json');
+        } else if(type==='app') {
+            const str = JSON.stringify(db,null,2);
+            let html = document.documentElement.outerHTML;
+            html = html.replace('const PRELOAD = null;', `const PRELOAD = ${str};`);
+            downloadFile(html, `元件库App_${date}.html`, 'text/html');
+        }
+    }
+
+    function downloadFile(content, name, mime) {
+        const b = new Blob([content], {type:mime});
+        const u = URL.createObjectURL(b);
+        const a = document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click();
+        setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(u); },1000);
+    }
+    
+    function triggerImport() { document.getElementById('file-input').click(); }
+    
+    // --- CSV BOM 导入逻辑 ---
+    function onFileRead(e) {
+        const f = e.target.files[0];
+        if(!f) return;
+        
+        const fileName = f.name.toLowerCase();
+        const reader = new FileReader();
+
+        reader.onload = (evt) => {
+            const content = evt.target.result;
+            try {
+                if (fileName.endsWith('.json')) {
+                    // JSON 导入逻辑
+                    const d = JSON.parse(content);
+                    if(Array.isArray(d)) {
+                        d.forEach(n=>{ let idx=db.findIndex(o=>o.id==n.id); if(idx>-1) db[idx]=n; else db.push(n); });
+                        save(); toast('JSON 导入成功');
+                    } else alert('JSON 格式错误');
+                } else if (fileName.endsWith('.csv')) {
+                    // CSV 导入逻辑
+                    parseAndImportCSV(content);
+                } else {
+                    alert('不支持的文件格式，请使用 .json 或 .csv');
+                }
+            } catch(e) {
+                console.error(e);
+                alert('读取文件失败: ' + e.message);
+            }
+            e.target.value = '';
+        };
+        
+        reader.readAsText(f);
+    }
+
+    function parseAndImportCSV(csvText) {
+        const lines = csvText.split(/\r\n|\n/);
+        if (lines.length < 2) { alert('CSV 内容为空'); return; }
+
+        // 解析表头，找到各列的索引
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+        
+        // 映射标准列名 (嘉立创/LCSC BOM)
+        const map = {
+            name: headers.indexOf('name'),
+            footprint: headers.findIndex(h => h.includes('footprint')),
+            qty: headers.findIndex(h => h.includes('quantity') || h === 'qty'),
+            supplierPart: headers.findIndex(h => h.includes('supplier part')), // LCSC Part #
+            designator: headers.indexOf('designator'),
+            manufacturer: headers.indexOf('manufacturer'),
+        };
+
+        if (map.name === -1) { alert('错误：无法在 CSV 中找到 Name 列'); return; }
+
+        let addedCount = 0;
+        let mergedCount = 0;
+
+        // 从第2行开始遍历
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            // 处理 CSV 的引号 (简单正则分割)
+            // 匹配逻辑：逗号分隔，但忽略双引号内的逗号
+            const row = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(cell => cell.trim().replace(/^"|"$/g, ''));
+            
+            // 提取数据
+            const name = row[map.name] || 'Unknown';
+            const model = map.footprint > -1 ? (row[map.footprint] || '') : '';
+            const qtyStr = map.qty > -1 ? row[map.qty] : '1';
+            const qty = parseInt(qtyStr) || 1;
+            const lcscPart = map.supplierPart > -1 ? row[map.supplierPart] : '';
+            const designator = map.designator > -1 ? row[map.designator] : '';
+            const manufacturer = map.manufacturer > -1 ? row[map.manufacturer] : '';
+
+            // 构造字段
+            let link = '';
+            if (lcscPart && lcscPart.toUpperCase().startsWith('C')) {
+                link = `https://item.szlcsc.com/product/detail/${lcscPart}.html`;
+            }
+            
+            let desc = manufacturer;
+            if (lcscPart) desc += ` (${lcscPart})`;
+            
+            // 自动推断分类
+            let cat = 'Other';
+            if (designator) {
+                const prefix = designator.charAt(0).toUpperCase();
+                if (['R', 'C', 'L', 'D', 'B'].includes(prefix)) cat = 'Passive';
+                else if (['U'].includes(prefix)) cat = 'MCU';
+                else if (['J', 'P', 'H', 'C'].includes(prefix)) cat = 'Conn'; // Connector
+                else if (['M'].includes(prefix)) cat = 'Module';
+                else if (['Q', 'S'].includes(prefix)) cat = 'Power'; // Transistor/Switch
+            }
+
+            // --- 智能导入逻辑 ---
+            // 1. 尝试在现有库中查找 (匹配 Name 和 Model)
+            // 注意：BOM 导入通常没有 "Loc" (储位)，所以我们查找时不匹配 Loc
+            let existingIdx = db.findIndex(item => item.name === name && item.model === model);
+
+            if (existingIdx > -1) {
+                // 存在 -> 合并数量
+                db[existingIdx].qty = (parseInt(db[existingIdx].qty) || 0) + qty;
+                db[existingIdx].time = Date.now(); // 标记为最近更新
+                mergedCount++;
+            } else {
+                // 不存在 -> 新建
+                db.push({
+                    id: Date.now() + Math.random(),
+                    name: name,
+                    model: model,
+                    loc: '待入库', // 默认储位
+                    cat: cat,
+                    qty: qty,
+                    desc: desc,
+                    link: link,
+                    time: Date.now()
+                });
+                addedCount++;
+            }
+        }
+
+        save();
+        if(addedCount > 0 || mergedCount > 0) {
+            toast(`BOM导入完成: 新增 ${addedCount}, 合并 ${mergedCount} ✅`, true); // 允许撤销
+            // 暂存用于撤销（这里简单处理，撤销时需重新加载之前的DB状态，比较复杂，这里复用简单的 deletedBuffer 逻辑不太适用，暂略复杂撤销）
+            // 如果要支持撤销整个导入，需要深拷贝 db 到 buffer。这里只做简单提示。
+        } else {
+            toast('未导入任何数据');
+        }
+    }
+    
+    function copy(t) { 
+        if(!t)return; 
+        const a=document.createElement('textarea');
+        a.value=t; document.body.appendChild(a); a.select(); 
+        try { document.execCommand('copy'); toast('已复制 ✅'); } catch(e) { alert('复制失败'); }
+        document.body.removeChild(a); 
+    }
+    
+    function clearSearch() { document.getElementById('search-inp').value=''; render(); }
+    
+    function toast(m, canUndo=false) { 
+        const t = document.getElementById('toast'); 
+        document.getElementById('toast-msg').innerText = m;
+        document.getElementById('toast-undo').style.display = 'none'; // 简化逻辑，暂不提供复杂导入的撤销
+        t.classList.add('show'); 
+        setTimeout(()=> {
+            t.classList.remove('show'); 
+        }, 3000); 
+    }
+
+    init();
+</script>
+</body>
+</html>
+
