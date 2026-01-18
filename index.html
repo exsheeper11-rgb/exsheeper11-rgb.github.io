@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0f172a">
-<title>元器件仓库 v7.6</title>
+<title>元器件仓库 v8.0</title>
 <style>
     /* --- 1. 核心视觉风格 --- */
     :root { 
@@ -571,10 +571,14 @@
 <input type="file" id="file-input" accept=".json,.csv" style="display:none" onchange="onFileRead(event)">
 
 <script>
+    // -------------------------------------------------------------------------
+    // 数据定义区域 (不要删除以下数组结构)
+    // -------------------------------------------------------------------------
     const PRELOAD = [
       {"id": 1, "name": "ESP32-WROOM", "model": "Module", "cat": "MCU", "qty": 5, "loc": "A-01", "desc": "WiFi+BT #项目A", "link": ""},
       {"id": 2, "name": "10K Resistor", "model": "0603", "cat": "Passive", "qty": 200, "loc": "C-05", "desc": "1% #常用", "link": ""}
     ];
+    // -------------------------------------------------------------------------
     
     // 保持 key 一致，确保用户升级时数据不丢失
     const KEY = 'components_v7_0_final';
@@ -1118,7 +1122,8 @@
             if(selected.has(item.id)) {
                 let copy = JSON.parse(JSON.stringify(item));
                 copy.id = Date.now() + Math.random(); 
-                copy.name = copy.name + " (副本)"; copy.link = ""; copy.time = Date.now();
+                copy.name = copy.name + " (副本)"; copy.name = copy.name.replace(" (副本) (副本)", " (副本)");
+                copy.time = Date.now();
                 newItems.push(copy); count++;
             }
         });
@@ -1330,6 +1335,7 @@
     function doExport(type) {
         closeExport();
         const date = new Date().toISOString().slice(0,10).replace(/-/g,'');
+        const str = JSON.stringify(db, null, 2);
         
         if(type==='shopping') {
             const list = db.filter(i=>i.qty < 5);
@@ -1340,24 +1346,33 @@
             });
             copy(text);
         } else if(type==='copy') {
-            const str = JSON.stringify(db,null,2);
             copy(str);
         } else if(type==='download') {
-            const str = JSON.stringify(db,null,2);
             downloadFile(str, `元件库_${date}.json`, 'application/json');
         } else if(type==='app') {
-            const str = JSON.stringify(db,null,2);
             let html = document.documentElement.outerHTML;
-            html = html.replace('const PRELOAD = null;', `const PRELOAD = ${str};`);
-            downloadFile(html, `元件库App_${date}.html`, 'text/html');
+            // 关键修复：使用正则替换 PRELOAD，确保数据注入成功
+            const replacePattern = /const PRELOAD = \[[\s\S]*?\];/;
+            if(replacePattern.test(html)) {
+                html = html.replace(replacePattern, `const PRELOAD = ${str};`);
+                downloadFile(html, `元件库App_${date}.html`, 'text/html');
+            } else {
+                toast('⚠️ 生成失败: 无法定位数据区');
+            }
         }
     }
 
     function downloadFile(content, name, mime) {
-        const b = new Blob([content], {type:mime});
-        const u = URL.createObjectURL(b);
-        const a = document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click();
-        setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(u); },1000);
+        try {
+            const b = new Blob([content], {type:mime});
+            const u = URL.createObjectURL(b);
+            const a = document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click();
+            setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(u); },1000);
+            toast('已开始下载', false);
+        } catch(e) {
+            console.error(e);
+            toast('❌ 下载被浏览器拦截，请尝试[复制数据]', false);
+        }
     }
     
     function triggerImport() { document.getElementById('file-input').click(); }
@@ -1512,4 +1527,3 @@
 </script>
 </body>
 </html>
-
