@@ -1146,12 +1146,13 @@ const ComponentSpecs = (() => {
   Object.assign(labels,{current:'额定电流',overloadVoltage:'最大过载电压',clampVoltage:'钳位电压',breakdownVoltage:'击穿电压',standOffVoltage:'反向截止电压',peakCurrent:'峰值脉冲电流',peakPower:'峰值脉冲功率',inputVoltage:'输入 / 工作电压',outputVoltage:'输出电压',outputCurrent:'输出电流',drainCurrent:'连续漏极电流',loadCapacitance:'负载电容',frequencyTolerance:'频率精度'});
   function descriptionSpecs(description, kind) {
     const text = clean(description);
+    const family = familyOf({kind});
     const values = {capacitor:/\b\d+(?:\.\d+)?\s*(?:pF|nF|uF|μF|µF|mF|F)\b/i,resistor:/\b\d+(?:\.\d+)?\s*(?:[kKmM]?Ω|[kKmM]?(?:ohms?|Ohms?))/,inductor:/\b\d+(?:\.\d+)?\s*(?:nH|uH|μH|µH|mH|H)\b/i};
     return {
       kind,
-      value: text.match(Object.hasOwn(values,kind) ? values[kind] : /(?!) /)?.[0] || '',
+      value: text.match(Object.hasOwn(values,family) ? values[family] : /(?!) /)?.[0] || '',
       tolerance: text.match(/(?:\+\s*\d+(?:\.\d+)?%\s*[/,]?\s*-\s*\d+(?:\.\d+)?%|(?:±|\+\/-)\s*\d+(?:\.\d+)?%)/)?.[0]?.trim() || '',
-      voltage: ['capacitor','resistor'].includes(kind) ? text.match(/\b\d+(?:\.\d+)?\s*(?:kV|V)\b/)?.[0] || '' : '',
+      voltage: ['capacitor','resistor'].includes(family) ? text.match(/\b\d+(?:\.\d+)?\s*(?:kV|V)\b/)?.[0] || '' : '',
       tempCoeff: text.match(/\b(?:C0G|NP0|X[56789][RS]|Y5V|Z5U)\b/i)?.[0]?.toUpperCase() || text.match(/(?:±)?\d+(?:\.\d+)?\s*ppm\s*\/?\s*(?:°C|℃|K)/i)?.[0] || '',
       power: text.match(/\b\d+(?:\.\d+)?\s*(?:mW|W)\b/)?.[0] || '',
       frequency: text.match(/\b\d+(?:\.\d+)?\s*(?:MHz|kHz|GHz|Hz)\b/)?.[0] || ''
@@ -1176,8 +1177,8 @@ const ComponentSpecs = (() => {
     const attrs = raw?.head?.c_para || {};
     const kind = sourceKind(result.category || (Array.isArray(result.tags) ? result.tags.join(' / ') : ''),result.description || attrs.name,attrs);
     const specs = descriptionSpecs(result.description,kind);
-    if (['capacitor','resistor','inductor'].includes(kind)) specs.value = clean(attrs.Value) || specs.value;
-    if (kind === 'crystal') specs.frequency = clean(attrs.Value) || specs.frequency;
+    if (['capacitor','resistor','inductor'].includes(familyOf(specs))) specs.value = clean(attrs.Value) || specs.value;
+    if (familyOf(specs) === 'crystal') specs.frequency = clean(attrs.Value) || specs.frequency;
     specs.brand = clean(attrs.Manufacturer);
     applyPairs(specs,pairsFrom(Object.fromEntries(Object.entries(attrs).filter(([name]) => name !== 'Value' && Object.values(aliasKeys).some(keys => keys.includes(normalKey(name)))))));
     // EDA footprint prefixes R/C are removed only for known standard chip sizes.
@@ -1205,15 +1206,16 @@ const ComponentSpecs = (() => {
     return 'other';
   }
   function sourceKind(category,description = '',attrs = {},pairs = []) {
+    // Merchant categories are display data, never replace them with parsing families.
+    const named = clean(category);
+    if (named) return named.slice(0,120);
     const explicit = pairs.find(p => ['器件类型','器件类别','连接器类型','Device Type','Component Type','Connector Type'].map(normalKey).includes(normalKey(p.name)) || ['devicetype','componenttype','connectortype'].includes(normalKey(p.key)));
     if (explicit?.value && !/^(?:-|--|n\/a|none|null)$/i.test(explicit.value)) return kindValue(explicit.value);
-    const named = clean(category);
-    if (/connector|连接器|插座/i.test(named) && /\btype[\s-]?c\b/i.test(clean(description))) return 'Type-C';
-    const known = inferKind(named);
-    if (known !== 'other') return known;
-    if (named) return kindValue(named);
     const inferred = inferKind(description,attrs);
-    return inferred === 'other' ? '' : inferred;
+    return inferred === 'other' ? '' : kindLabel(inferred);
+  }
+  function familyOf(specs = {}) {
+    return Object.hasOwn(kinds,specs.kind) ? specs.kind : inferKind(specs.kind,{Value:specs.value});
   }
   function pairsFrom(value) {
     if (typeof value === 'string') { try { value = JSON.parse(value); } catch { return []; } }
@@ -1235,18 +1237,19 @@ const ComponentSpecs = (() => {
   function fromOfficial(data,code) {
     const row = data.result; if (!row || clean(row.productCode).toUpperCase() !== code) return null;
     const pairs = pairsFrom(row.paramVOList || row.productParamVOList);
-    const kind = sourceKind(row.catalogName,row.productModel || row.productIntroEn,{},pairs), specs = {kind,brand:clean(row.brandNameEn),datasheet:clean(row.pdfUrl)};
+    const kind = sourceKind(row.catalogNameCn || row.deviceType || row.catalogName,row.productModel || row.productIntroEn,{},pairs), specs = {kind,brand:clean(row.brandNameEn),datasheet:clean(row.pdfUrl)};
     const unavailableFields = applyPairs(specs,pairs);
     const source = data.source === 'LCSC official parameter snapshot' ? '立创官方参数快照（备用）' : data.source === 'LCSC product parameters' ? '立创官方完整参数' : data.source || '立创官方完整参数';
     return {code,name:clean(row.productModel),package:clean(row.encapStandard),category:kindLabel(kind) || clean(row.catalogName),specs,unavailableFields,source,fetchedAt:data.fetchedAt || Date.now(),complete:true};
   }
   function displayName(result) {
-    const value = ['capacitor','resistor','inductor'].includes(result.specs?.kind) ? clean(result.specs.value) : result.specs?.kind === 'crystal' ? clean(result.specs.frequency) : '';
+    const family = familyOf(result.specs);
+    const value = ['capacitor','resistor','inductor'].includes(family) ? clean(result.specs.value) : family === 'crystal' ? clean(result.specs.frequency) : '';
     const name = clean(result.name); return value && !name.toLowerCase().includes(value.toLowerCase()) ? `${value} ${name}`.trim() : name;
   }
   const summary = specs => ['value','frequency','tolerance','voltage','current','tempCoeff','power','clampVoltage','peakCurrent','outputCurrent'].map(key => clean(specs?.[key])).filter(Boolean).join(' / ');
   const searchText = item => [kindLabel(item.specs?.kind),...fields.map(key => clean(item.specs?.[key])),...(item.specs?.extraParams || []).flatMap(p => [p.name,p.value])].join(' ');
-  return {fields,labels,kinds,kindLabel,kindValue,fromOfficial,fromCatalog,fromEasyEda,merge,displayName,summary,searchText,pairsFrom};
+  return {fields,labels,kinds,kindLabel,kindValue,familyOf,fromOfficial,fromCatalog,fromEasyEda,merge,displayName,summary,searchText,pairsFrom};
 })();
 
 const PRODUCT_SNAPSHOTS = {
@@ -1319,7 +1322,9 @@ const PRODUCT_SNAPSHOTS = {
           "paramValue": "28V",
           "paramValueEn": "28V"
         }
-      ]
+      ],
+      "catalogNameCn": "静电和浪涌保护(TVS/ESD)",
+      "deviceType": "静电和浪涌保护(TVS/ESD)"
     },
     "source": "LCSC official parameter snapshot",
     "fetchedAt": 1791975289350
@@ -1387,7 +1392,9 @@ const PRODUCT_SNAPSHOTS = {
           "paramValue": "150Ω",
           "paramValueEn": "150Ω"
         }
-      ]
+      ],
+      "catalogNameCn": "稳压二极管",
+      "deviceType": "稳压二极管"
     },
     "source": "LCSC official parameter snapshot",
     "fetchedAt": 1791975289351
@@ -1473,7 +1480,9 @@ const PRODUCT_SNAPSHOTS = {
           "paramValue": "150uA",
           "paramValueEn": "150uA"
         }
-      ]
+      ],
+      "catalogNameCn": "DC-DC电源芯片",
+      "deviceType": "DC-DC电源芯片"
     },
     "source": "LCSC official parameter snapshot",
     "fetchedAt": 1791975289351
@@ -1529,12 +1538,15 @@ const PRODUCT_SNAPSHOTS = {
           "paramValue": "-55℃~+155℃",
           "paramValueEn": "-55℃~+155℃"
         }
-      ]
+      ],
+      "catalogNameCn": "贴片电阻",
+      "deviceType": "贴片电阻"
     },
     "source": "LCSC official parameter snapshot",
     "fetchedAt": 1791975289352
   }
-};
+}
+;
 const PARAMETER_API_URL = "https://component-parameters-exsheeper11.rubbishmaster11.chatgpt.site"
 ;
 
@@ -3423,7 +3435,7 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
         const abort = () => timeout.abort(); signal?.addEventListener('abort',abort,{once:true});
         if (signal?.aborted) timeout.abort();
         const request = async (url,extract) => {
-            const response = await fetch(url,{credentials:'omit',signal:timeout.signal,headers:{Accept:'application/json'}});
+            const response = await fetch(url,{credentials:'omit',cache:'no-store',signal:timeout.signal,headers:{Accept:'application/json'}});
             if (!response.ok) throw new Error('参数服务暂不可用');
             return extract(await response.json(),code);
         };
@@ -3449,25 +3461,27 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
     }
     async function fetchDetailedParameters(result,signal) {
         const routes = {resistor:'resistors',capacitor:'capacitors',inductor:'inductors',crystal:'crystals',tvs:'diodes',zener:'diodes',dcdc:'buck_boost_converters',mosfet:'mosfets',switch:'switches',ldo:'voltage_regulators'};
-        const route = Object.hasOwn(routes,result.specs.kind) ? routes[result.specs.kind] : ''; if (!route || !result.package) return null;
+        const family = ComponentSpecs.familyOf(result.specs);
+        const route = Object.hasOwn(routes,family) ? routes[family] : ''; if (!route || !result.package) return null;
         const query = new URLSearchParams({package:result.package});
         const match = (result.specs.value || '').match(/^(\d+(?:\.\d+)?)\s*([pnumµμkKM]?)(?:Ω|ohms?|F|H|R)$/i);
         if (match) {
             const scales = {p:1e-12,n:1e-9,u:1e-6,µ:1e-6,μ:1e-6,m:1e-3,k:1e3,K:1e3,M:1e6};
-            const filter = {resistor:'resistance',capacitor:'capacitance',inductor:'inductance'}[result.specs.kind];
+            const filter = {resistor:'resistance',capacitor:'capacitance',inductor:'inductance'}[family];
             if (filter) query.set(filter,String(Number(match[1]) * (scales[match[2]] || 1)));
         }
         const response = await fetch(`https://jlcsearch.tscircuit.com/${route}/list.json?${query}`,{signal,credentials:'omit'});
         if (!response.ok) return null;
         const data = await response.json(); const rows = Object.values(data).find(Array.isArray) || [];
         const row = rows.find(row => 'C'+Number(row.lcsc) === result.code); if (!row) return null;
-        const detail = ComponentSpecs.fromCatalog({components:[{...row,category:ComponentSpecs.kinds[result.specs.kind]}]},result.code);
+        const detail = ComponentSpecs.fromCatalog({components:[{...row,category:result.category}]},result.code);
         if (detail) detail.source = 'jlcsearch 分类参数表'; return detail;
     }
     function parameterSummaryRows(result, hideName = false) {
         const rows = hideName ? [['封装',result.package]] : [['厂家型号',result.name],['封装',result.package]];
         rows.push(['器件类型',ComponentSpecs.kindLabel(result.specs.kind)]);
-        const compactLabels = {value:{capacitor:'容值',resistor:'阻值',inductor:'电感量'}[result.specs.kind] || '标称值',voltage:'额定电压',tempCoeff:result.specs.kind === 'capacitor' ? '温度特性' : '温度系数'};
+        const family = ComponentSpecs.familyOf(result.specs);
+        const compactLabels = {value:{capacitor:'容值',resistor:'阻值',inductor:'电感量'}[family] || '标称值',voltage:'额定电压',tempCoeff:family === 'capacitor' ? '温度特性' : '温度系数'};
         for (const key of ComponentSpecs.fields.filter(key => key !== 'kind' && key !== 'datasheet')) if (result.specs[key]) rows.push([compactLabels[key] || ComponentSpecs.labels[key],result.specs[key]]);
         (result.specs.extraParams || []).forEach(p => rows.push([p.name,p.value]));
         if (result.category) rows.push(['分类',result.category]);

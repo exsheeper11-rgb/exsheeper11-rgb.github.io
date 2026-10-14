@@ -10,6 +10,6 @@ Online component-parameter lookups primarily use the LCSC public product paramet
 
 Fallback lookups use the public jlcsearch service, typed component tables and EasyEDA component cache: https://github.com/tscircuit/jlcsearch. Only the requested LCSC part number and public package/value filters are sent; packaging photos are decoded locally. Official missing values are not inferred from model numbers or voltage ranges. Existing browser inventory is retained.
 
-Device types accept free text and preserve named official types, including Connector Type. Unrecognized source categories are retained rather than forced into a fixed list. The EDA USB symbol prefix does not imply an integrated circuit.
+Device types accept free text and primarily preserve the exact product category from the mainland LCSC merchant page. The API resolves a numeric product ID from the official public product endpoint and verifies the C identifier on the merchant page before returning its original Chinese category. Overseas/fallback categories retain their source wording when the Chinese category is unavailable. Parsing families are independent of display types; connector subtypes such as Type-C remain in the named parameter table. The EDA USB symbol prefix does not imply an integrated circuit.
 
 LCSC packaging `pc`, `pm`, and `qty` field semantics were researched using https://github.com/theautomatist/scan2place. The label parser in this application was independently implemented.
