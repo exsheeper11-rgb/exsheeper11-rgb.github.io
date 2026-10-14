@@ -679,7 +679,7 @@ button[style*="background:var(--accent)"],button[style*="background: var(--accen
             <p id="param-query-status" class="parameter-status" role="status" aria-live="polite"></p>
             <div id="param-query-preview" class="parameter-preview" hidden><dl id="param-preview-list" class="scan-summary"></dl><button class="b-btn" onclick="applyParameterResult()">应用到表单</button></div>
             <div class="parameter-fields">
-                <div class="form-group"><label class="form-label" for="e-spec-kind">器件类型</label><select id="e-spec-kind" class="form-input"><option value="">未指定</option><option value="capacitor">电容</option><option value="resistor">电阻</option><option value="inductor">电感</option><option value="ic">芯片</option><option value="other">其他</option></select></div>
+                <div class="form-group"><label class="form-label" for="e-spec-kind">器件类型</label><input id="e-spec-kind" class="form-input" list="device-type-options" maxlength="120" placeholder="自动读取，也可输入任意类型"></div>
                 <div class="form-group"><label class="form-label" for="e-spec-value">容值 / 阻值 / 电感量</label><input id="e-spec-value" class="form-input" placeholder="如 100nF、10kΩ、4.7µH"></div>
                 <div class="form-group"><label class="form-label" for="e-spec-tolerance">精度</label><input id="e-spec-tolerance" class="form-input" placeholder="如 ±10%、±1%"></div>
                 <div class="form-group"><label class="form-label" for="e-spec-voltage">额定电压 / 耐压</label><input id="e-spec-voltage" class="form-input" placeholder="如 50V、6.3V"></div>
@@ -996,6 +996,7 @@ button[style*="background:var(--accent)"],button[style*="background: var(--accen
     <button id="toast-undo" class="toast-btn" style="display:none" onclick="undoDelete()">撤销</button>
 </div>
 <datalist id="category-options"></datalist>
+<datalist id="device-type-options"></datalist>
 <input type="file" id="file-input" accept=".json,.csv" style="display:none" onchange="onFileRead(event)">
 
 <script>/*! jsQR v1.4.0 | Apache-2.0 | https://github.com/cozmo/jsQR */
@@ -1137,13 +1138,18 @@ const ComponentSpecs = (() => {
   const labels = {kind:'器件类型',value:'容值 / 阻值 / 电感量',tolerance:'精度',voltage:'额定电压 / 耐压',tempCoeff:'温度特性 / 温度系数',power:'额定功率',brand:'制造商',operatingTemp:'工作温度',frequency:'频率',datasheet:'数据手册'};
   const kinds = {capacitor:'电容',resistor:'电阻',inductor:'电感',crystal:'晶振',tvs:'TVS管',zener:'稳压二极管',dcdc:'DC-DC芯片',ldo:'LDO',mosfet:'MOS管',switch:'开关',ic:'IC',other:'其他'};
   const clean = value => typeof value === 'string' || typeof value === 'number' ? String(value).trim() : '';
+  const kindLabel = value => Object.hasOwn(kinds,value) ? kinds[value] : clean(value);
+  function kindValue(value) {
+    const text = clean(value).slice(0,120);
+    return Object.keys(kinds).find(key => key === text || kinds[key] === text) || text;
+  }
   Object.assign(labels,{current:'额定电流',overloadVoltage:'最大过载电压',clampVoltage:'钳位电压',breakdownVoltage:'击穿电压',standOffVoltage:'反向截止电压',peakCurrent:'峰值脉冲电流',peakPower:'峰值脉冲功率',inputVoltage:'输入 / 工作电压',outputVoltage:'输出电压',outputCurrent:'输出电流',drainCurrent:'连续漏极电流',loadCapacitance:'负载电容',frequencyTolerance:'频率精度'});
   function descriptionSpecs(description, kind) {
     const text = clean(description);
     const values = {capacitor:/\b\d+(?:\.\d+)?\s*(?:pF|nF|uF|μF|µF|mF|F)\b/i,resistor:/\b\d+(?:\.\d+)?\s*(?:[kKmM]?Ω|[kKmM]?(?:ohms?|Ohms?))/,inductor:/\b\d+(?:\.\d+)?\s*(?:nH|uH|μH|µH|mH|H)\b/i};
     return {
       kind,
-      value: text.match(values[kind] || /(?!) /)?.[0] || '',
+      value: text.match(Object.hasOwn(values,kind) ? values[kind] : /(?!) /)?.[0] || '',
       tolerance: text.match(/(?:\+\s*\d+(?:\.\d+)?%\s*[/,]?\s*-\s*\d+(?:\.\d+)?%|(?:±|\+\/-)\s*\d+(?:\.\d+)?%)/)?.[0]?.trim() || '',
       voltage: ['capacitor','resistor'].includes(kind) ? text.match(/\b\d+(?:\.\d+)?\s*(?:kV|V)\b/)?.[0] || '' : '',
       tempCoeff: text.match(/\b(?:C0G|NP0|X[56789][RS]|Y5V|Z5U)\b/i)?.[0]?.toUpperCase() || text.match(/(?:±)?\d+(?:\.\d+)?\s*ppm\s*\/?\s*(?:°C|℃|K)/i)?.[0] || '',
@@ -1154,12 +1160,11 @@ const ComponentSpecs = (() => {
   function fromCatalog(data, code) {
     const row = data.components?.find(row => 'C' + Number(row.lcsc) === code);
     if (!row) return null;
-    const category = clean(row.category) + ' ' + clean(row.subcategory);
-    const kind = inferKind(category);
+    const kind = sourceKind(clean(row.subcategory || row.category),row.description || row.mfr);
     const specs = descriptionSpecs(row.description,kind);
     let extra = row.extra; if (typeof extra === 'string') { try { extra = JSON.parse(extra); } catch { extra = {}; } }
     applyPairs(specs,pairsFrom(row.attributes || extra?.attributes));
-    return {code,name:clean(row.mfr),package:clean(row.package),category:kind === 'other' ? clean(row.subcategory || row.category) || '其他' : kinds[kind],description:clean(row.description),specs,source:'jlcsearch 器件目录'};
+    return {code,name:clean(row.mfr),package:clean(row.package),category:kindLabel(kind) || clean(row.subcategory || row.category),description:clean(row.description),specs,source:'jlcsearch 器件目录'};
   }
   function fromEasyEda(data, code) {
     const envelope = data.easyeda_component_details;
@@ -1169,8 +1174,7 @@ const ComponentSpecs = (() => {
     let raw = result.dataStr;
     if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch { raw = {}; } }
     const attrs = raw?.head?.c_para || {};
-    const pre = clean(attrs.pre).toUpperCase();
-    const kind = inferKind(result.category || result.description,attrs);
+    const kind = sourceKind(result.category || (Array.isArray(result.tags) ? result.tags.join(' / ') : ''),result.description || attrs.name,attrs);
     const specs = descriptionSpecs(result.description,kind);
     if (['capacitor','resistor','inductor'].includes(kind)) specs.value = clean(attrs.Value) || specs.value;
     if (kind === 'crystal') specs.frequency = clean(attrs.Value) || specs.frequency;
@@ -1178,7 +1182,7 @@ const ComponentSpecs = (() => {
     applyPairs(specs,pairsFrom(Object.fromEntries(Object.entries(attrs).filter(([name]) => name !== 'Value' && Object.values(aliasKeys).some(keys => keys.includes(normalKey(name)))))));
     // EDA footprint prefixes R/C are removed only for known standard chip sizes.
     const packageName = clean(attrs.package).replace(/^[RC](0201|0402|0603|0805|1206|1210|1812|2010|2512)$/,'$1');
-    return {code,name:clean(attrs['Manufacturer Part'] || attrs.name),package:packageName,category:kinds[kind],description:clean(result.description),specs,source:'EasyEDA（jlcsearch 缓存）'};
+    return {code,name:clean(attrs['Manufacturer Part'] || attrs.name),package:packageName,category:kindLabel(kind),description:clean(result.description),specs,source:'EasyEDA（jlcsearch 缓存）'};
   }
   function merge(primary, fallback) {
     if (!primary) return fallback; if (!fallback) return primary;
@@ -1198,7 +1202,18 @@ const ComponentSpecs = (() => {
     if (pre.startsWith('C') || /^C\d{4}/.test(pkg) || /\d\s*(?:[pnumµμ]?F)$/i.test(value)) return 'capacitor';
     if (pre.startsWith('L') || /\d\s*(?:[numµμ]?H)$/i.test(value)) return 'inductor';
     if (pre.startsWith('Y') || pre.startsWith('X') || /\d\s*(?:MHz|kHz|Hz)$/i.test(value)) return 'crystal';
-    if (pre.startsWith('U')) return 'ic'; return 'other';
+    return 'other';
+  }
+  function sourceKind(category,description = '',attrs = {},pairs = []) {
+    const explicit = pairs.find(p => ['器件类型','器件类别','连接器类型','Device Type','Component Type','Connector Type'].map(normalKey).includes(normalKey(p.name)) || ['devicetype','componenttype','connectortype'].includes(normalKey(p.key)));
+    if (explicit?.value && !/^(?:-|--|n\/a|none|null)$/i.test(explicit.value)) return kindValue(explicit.value);
+    const named = clean(category);
+    if (/connector|连接器|插座/i.test(named) && /\btype[\s-]?c\b/i.test(clean(description))) return 'Type-C';
+    const known = inferKind(named);
+    if (known !== 'other') return known;
+    if (named) return kindValue(named);
+    const inferred = inferKind(description,attrs);
+    return inferred === 'other' ? '' : inferred;
   }
   function pairsFrom(value) {
     if (typeof value === 'string') { try { value = JSON.parse(value); } catch { return []; } }
@@ -1219,18 +1234,19 @@ const ComponentSpecs = (() => {
   }
   function fromOfficial(data,code) {
     const row = data.result; if (!row || clean(row.productCode).toUpperCase() !== code) return null;
-    const kind = inferKind(row.catalogName), specs = {kind,brand:clean(row.brandNameEn),datasheet:clean(row.pdfUrl)};
-    const unavailableFields = applyPairs(specs,pairsFrom(row.paramVOList || row.productParamVOList));
+    const pairs = pairsFrom(row.paramVOList || row.productParamVOList);
+    const kind = sourceKind(row.catalogName,row.productModel || row.productIntroEn,{},pairs), specs = {kind,brand:clean(row.brandNameEn),datasheet:clean(row.pdfUrl)};
+    const unavailableFields = applyPairs(specs,pairs);
     const source = data.source === 'LCSC official parameter snapshot' ? '立创官方参数快照（备用）' : data.source === 'LCSC product parameters' ? '立创官方完整参数' : data.source || '立创官方完整参数';
-    return {code,name:clean(row.productModel),package:clean(row.encapStandard),category:kind === 'other' ? clean(row.catalogName) || '其他' : kinds[kind],specs,unavailableFields,source,fetchedAt:data.fetchedAt || Date.now(),complete:true};
+    return {code,name:clean(row.productModel),package:clean(row.encapStandard),category:kindLabel(kind) || clean(row.catalogName),specs,unavailableFields,source,fetchedAt:data.fetchedAt || Date.now(),complete:true};
   }
   function displayName(result) {
     const value = ['capacitor','resistor','inductor'].includes(result.specs?.kind) ? clean(result.specs.value) : result.specs?.kind === 'crystal' ? clean(result.specs.frequency) : '';
     const name = clean(result.name); return value && !name.toLowerCase().includes(value.toLowerCase()) ? `${value} ${name}`.trim() : name;
   }
   const summary = specs => ['value','frequency','tolerance','voltage','current','tempCoeff','power','clampVoltage','peakCurrent','outputCurrent'].map(key => clean(specs?.[key])).filter(Boolean).join(' / ');
-  const searchText = item => [...fields.map(key => clean(item.specs?.[key])),...(item.specs?.extraParams || []).flatMap(p => [p.name,p.value])].join(' ');
-  return {fields,labels,kinds,fromOfficial,fromCatalog,fromEasyEda,merge,displayName,summary,searchText,pairsFrom};
+  const searchText = item => [kindLabel(item.specs?.kind),...fields.map(key => clean(item.specs?.[key])),...(item.specs?.extraParams || []).flatMap(p => [p.name,p.value])].join(' ');
+  return {fields,labels,kinds,kindLabel,kindValue,fromOfficial,fromCatalog,fromEasyEda,merge,displayName,summary,searchText,pairsFrom};
 })();
 
 const PRODUCT_SNAPSHOTS = {
@@ -3356,8 +3372,11 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
             const input = document.createElement('input'); input.id = 'e-spec-'+field; input.className = 'form-input';
             group.append(label,input); root.append(group);
         }
-        const kind = document.getElementById('e-spec-kind');
-        kind.replaceChildren(new Option('未指定',''),...Object.entries(ComponentSpecs.kinds).map(([value,label]) => new Option(label,value)));
+        refreshDeviceTypeOptions();
+    }
+    function refreshDeviceTypeOptions() {
+        const values = [...new Set([...Object.values(ComponentSpecs.kinds),'Type-C',...db.map(item => ComponentSpecs.kindLabel(item.specs?.kind)).filter(Boolean)])];
+        document.getElementById('device-type-options').replaceChildren(...values.map(value => new Option(value,value)));
     }
     function addExtraParameterRow(parameter = {}) {
         const row = document.createElement('div'); row.className = 'parameter-extra-row';
@@ -3372,7 +3391,8 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
     }
     function resetParameterForm(specs = {}, provenance = {}) {
         cancelParameterQuery(); parameterState.result = null;
-        for (const field of ComponentSpecs.fields) document.getElementById('e-spec-' + field).value = specs[field] || '';
+        for (const field of ComponentSpecs.fields) document.getElementById('e-spec-' + field).value = field === 'kind' ? ComponentSpecs.kindLabel(specs.kind) : specs[field] || '';
+        refreshDeviceTypeOptions();
         document.getElementById('param-extra-table').replaceChildren();
         (specs.extraParams || []).forEach(addExtraParameterRow);
         document.getElementById('param-advanced').open = ComponentSpecs.fields.slice(10).some(field => specs[field]) || !!specs.extraParams?.length;
@@ -3384,7 +3404,7 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
     function readSpecFields() {
         const specs = {};
         for (const field of ComponentSpecs.fields) {
-            const value = document.getElementById('e-spec-' + field).value.trim(); if (value) specs[field] = value;
+            const value = document.getElementById('e-spec-' + field).value.trim(); if (value) specs[field] = field === 'kind' ? ComponentSpecs.kindValue(value) : value;
         }
         const extras = [...document.querySelectorAll('.parameter-extra-row')].map(row => ({name:row.querySelector('.param-extra-name').value.trim(),key:row.dataset.key,value:row.querySelector('.param-extra-value').value.trim()})).filter(p => p.name);
         if (extras.length) specs.extraParams = extras;
@@ -3429,7 +3449,7 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
     }
     async function fetchDetailedParameters(result,signal) {
         const routes = {resistor:'resistors',capacitor:'capacitors',inductor:'inductors',crystal:'crystals',tvs:'diodes',zener:'diodes',dcdc:'buck_boost_converters',mosfet:'mosfets',switch:'switches',ldo:'voltage_regulators'};
-        const route = routes[result.specs.kind]; if (!route || !result.package) return null;
+        const route = Object.hasOwn(routes,result.specs.kind) ? routes[result.specs.kind] : ''; if (!route || !result.package) return null;
         const query = new URLSearchParams({package:result.package});
         const match = (result.specs.value || '').match(/^(\d+(?:\.\d+)?)\s*([pnumµμkKM]?)(?:Ω|ohms?|F|H|R)$/i);
         if (match) {
@@ -3446,6 +3466,7 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
     }
     function parameterSummaryRows(result, hideName = false) {
         const rows = hideName ? [['封装',result.package]] : [['厂家型号',result.name],['封装',result.package]];
+        rows.push(['器件类型',ComponentSpecs.kindLabel(result.specs.kind)]);
         const compactLabels = {value:{capacitor:'容值',resistor:'阻值',inductor:'电感量'}[result.specs.kind] || '标称值',voltage:'额定电压',tempCoeff:result.specs.kind === 'capacitor' ? '温度特性' : '温度系数'};
         for (const key of ComponentSpecs.fields.filter(key => key !== 'kind' && key !== 'datasheet')) if (result.specs[key]) rows.push([compactLabels[key] || ComponentSpecs.labels[key],result.specs[key]]);
         (result.specs.extraParams || []).forEach(p => rows.push([p.name,p.value]));
@@ -3475,7 +3496,7 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
         if (result.name) document.getElementById('e-name').value = ComponentSpecs.displayName(result);
         if (result.package) document.getElementById('e-model').value = result.package;
         if (result.category) document.getElementById('e-cat').value = result.category;
-        for (const field of ComponentSpecs.fields) if (result.specs[field]) document.getElementById('e-spec-' + field).value = result.specs[field];
+        for (const field of ComponentSpecs.fields) if (result.specs[field]) document.getElementById('e-spec-' + field).value = field === 'kind' ? ComponentSpecs.kindLabel(result.specs.kind) : result.specs[field];
         for (const field of result.unavailableFields || []) document.getElementById('e-spec-'+field).value = '';
         document.getElementById('param-extra-table').replaceChildren();
         (result.specs.extraParams || []).forEach(addExtraParameterRow);
