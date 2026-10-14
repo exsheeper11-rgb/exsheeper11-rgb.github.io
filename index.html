@@ -159,6 +159,7 @@ button[style*="background:var(--accent)"],button[style*="background: var(--accen
 .scan-manual {border-top:var(--border);padding-top:16px;margin-top:18px}.scan-manual summary {cursor:pointer;color:var(--text-secondary);font-size:12px}.scan-manual .form-label {margin-top:14px}.scan-manual .b-btn {margin-top:10px}.scan-privacy {font-size:11px;color:var(--text-sub);margin-top:16px}.scan-entry-note {padding:10px 12px;margin-bottom:16px;font-size:12px;color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:6px}
 .parameter-section {border:var(--border);border-radius:8px;padding:14px;margin-bottom:16px;background:var(--bg-input)}.parameter-heading {display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.parameter-heading h4 {font-size:13px;font-weight:600}.parameter-heading>div {display:flex;gap:6px}.parameter-heading .b-btn {height:30px;font-size:11px;padding:0 9px}
 .parameter-status {font-size:11px;color:var(--text-sub);line-height:1.7;margin:8px 0 12px}.parameter-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 10px}.parameter-fields .form-group {min-width:0;margin-bottom:12px}.parameter-fields .form-label {font-size:11px}.parameter-fields input {min-width:0}.parameter-preview {background:var(--bg-surface);border:var(--border);border-radius:6px;padding:14px;margin:12px 0}.card-specs {font-size:11px;color:var(--text-secondary);line-height:1.7;overflow-wrap:anywhere;margin-bottom:8px}
+.parameter-extra-row {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:6px;margin-bottom:8px}#param-advanced {margin-bottom:14px}#param-advanced summary {font-size:12px;cursor:pointer;margin-bottom:12px}.side-nav-btn span {overflow-wrap:anywhere}.cat-badge {max-width:150px;overflow:hidden;text-overflow:ellipsis}
 @media(min-width:860px) {.sidebar {display:flex}.tab-bar {display:none!important}.nav-text {display:inline;font-size:12px}.btn-icon.nav-labeled {width:auto;padding:0 10px;gap:7px}.batch-bar {left:var(--sidebar-width)}}
 @media(min-width:1120px) {.panel-grid.two-col {grid-template-columns:1fr 1fr}}
 @media(max-width:1100px) {.viewport {padding:24px 20px 90px}.stat-card {padding:17px}.stat-num {font-size:25px}.heading-actions {flex-wrap:wrap}.comp-table td,.comp-table th {padding-left:10px;padding-right:10px}.brand-ver {display:none}}
@@ -622,16 +623,7 @@ button[style*="background:var(--accent)"],button[style*="background: var(--accen
 
         <div class="form-group">
             <label class="form-label">批量修改分类</label>
-            <select class="form-input" id="be-cat">
-                <option value="">(保持原分类不变)</option>
-                <option value="MCU">主控芯片 (MCU)</option>
-                <option value="Sensor">传感器 (Sensor)</option>
-                <option value="Passive">阻容感 (Passive)</option>
-                <option value="Module">功能模块 (Module)</option>
-                <option value="Conn">连接器 (Conn)</option>
-                <option value="Power">电源器件 (Power)</option>
-                <option value="Other">其他元件 (Other)</option>
-            </select>
+            <input class="form-input" id="be-cat" list="category-options" maxlength="120" placeholder="留空保持原分类，或输入新分类">
         </div>
 
         <div class="form-group">
@@ -674,15 +666,7 @@ button[style*="background:var(--accent)"],button[style*="background: var(--accen
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
             <div class="form-group">
                 <label class="form-label">器件分类</label>
-                <select class="form-input" id="e-cat">
-                    <option value="MCU">主控芯片 (MCU)</option>
-                    <option value="Sensor">传感器 (Sensor)</option>
-                    <option value="Passive">阻容感 (Passive)</option>
-                    <option value="Module">功能模块 (Module)</option>
-                    <option value="Conn">连接器 (Conn)</option>
-                    <option value="Power">电源器件 (Power)</option>
-                    <option value="Other">其他元件 (Other)</option>
-                </select>
+                <input class="form-input" id="e-cat" list="category-options" maxlength="120" placeholder="自动读取分类，也可输入任意分类">
             </div>
             <div class="form-group">
                 <label class="form-label">立创商城编号 (选填)</label>
@@ -706,7 +690,8 @@ button[style*="background:var(--accent)"],button[style*="background: var(--accen
                 <div class="form-group"><label class="form-label" for="e-spec-frequency">频率</label><input id="e-spec-frequency" class="form-input" placeholder="如 16MHz"></div>
                 <div class="form-group"><label class="form-label" for="e-spec-datasheet">数据手册 URL</label><input id="e-spec-datasheet" class="form-input" placeholder="https://..."></div>
             </div>
-            <p class="parameter-status">参数查询使用 jlcsearch / EasyEDA 缓存，只发送 C 编号。照片仍在本地识别。</p>
+            <details id="param-advanced"><summary>电气额定值与其他参数</summary><div id="param-advanced-fields" class="parameter-fields"></div><div id="param-extra-table"></div><button class="b-btn b-btn-outline" onclick="addExtraParameterRow()">添加参数</button></details>
+            <p class="parameter-status">查询只发送 C 编号。照片仍在本地识别；参数来源会在查询结果中显示。</p>
         </section>
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
             <div class="form-group">
@@ -1010,6 +995,7 @@ button[style*="background:var(--accent)"],button[style*="background: var(--accen
     <span id="toast-msg">操作已完成</span>
     <button id="toast-undo" class="toast-btn" style="display:none" onclick="undoDelete()">撤销</button>
 </div>
+<datalist id="category-options"></datalist>
 <input type="file" id="file-input" accept=".json,.csv" style="display:none" onchange="onFileRead(event)">
 
 <script>/*! jsQR v1.4.0 | Apache-2.0 | https://github.com/cozmo/jsQR */
@@ -1068,12 +1054,13 @@ const WarehouseCore = (() => {
       if (item.specs !== undefined) {
         if (!item.specs || typeof item.specs !== 'object' || Array.isArray(item.specs)) throw new Error(`第 ${index + 1} 项参数格式无效`);
         const specs = {};
-        for (const key of ['kind','value','tolerance','voltage','tempCoeff','power','brand','operatingTemp','frequency','datasheet']) {
+        for (const key of ['kind','value','tolerance','voltage','tempCoeff','power','brand','operatingTemp','frequency','datasheet','current','overloadVoltage','clampVoltage','breakdownVoltage','standOffVoltage','peakCurrent','peakPower','inputVoltage','outputVoltage','outputCurrent','drainCurrent','loadCapacitance','frequencyTolerance']) {
           if (typeof item.specs[key] === 'string' || typeof item.specs[key] === 'number') specs[key] = String(item.specs[key]).slice(0,2048);
         }
+        if (Array.isArray(item.specs.extraParams)) specs.extraParams = item.specs.extraParams.slice(0,100).filter(p => p && typeof p.name === 'string').map(p => ({name:p.name.slice(0,256),key:String(p.key || '').slice(0,256),value:String(p.value || '').slice(0,2048)}));
         parameters = {specs,specSource:String(item.specSource || '').slice(0,256),specCode:String(item.specCode || '').toUpperCase(),specFetchedAt:Number(item.specFetchedAt) || 0};
       }
-      return { ...item, ...parameters, id, name:item.name.trim(), model:String(item.model ?? ''), cat:['MCU','Sensor','Passive','Module','Conn','Power','Other'].includes(item.cat) ? item.cat : 'Other', qty, minQty, price, loc:String(item.loc ?? ''), lcsc:String(item.lcsc ?? ''), desc:String(item.desc ?? ''), link:String(item.link ?? ''), time:Number(item.time) || 0 };
+      return { ...item, ...parameters, id, name:item.name.trim(), model:String(item.model ?? ''), cat:String(item.cat || 'Other').trim().slice(0,120) || 'Other', qty, minQty, price, loc:String(item.loc ?? ''), lcsc:String(item.lcsc ?? ''), desc:String(item.desc ?? ''), link:String(item.link ?? ''), time:Number(item.time) || 0 };
     });
   }
   function allocateBom(requests, inventory, multiplier, lcscOf) {
@@ -1081,7 +1068,7 @@ const WarehouseCore = (() => {
     return requests.map(r => {
       const name = r.reqName.toLowerCase(), pkg = r.reqPkg.toLowerCase();
       // A requested supplier code or package must never silently match a different part.
-      const matched = r.reqLcsc ? inventory.find(i => lcscOf(i) === r.reqLcsc) : inventory.find(i => i.name.toLowerCase() === name && (!pkg || i.model.toLowerCase() === pkg));
+      const matched = r.reqLcsc ? inventory.find(i => lcscOf(i) === r.reqLcsc) : inventory.find(i => (i.name.toLowerCase() === name || String(i.mpn || '').toLowerCase() === name) && (!pkg || i.model.toLowerCase() === pkg));
       const stockQty = matched ? Math.max(0, matched.qty - (used.get(matched.id) || 0)) : 0;
       const totalReq = r.unitQty * multiplier;
       if (matched) used.set(matched.id, (used.get(matched.id) || 0) + totalReq);
@@ -1146,18 +1133,19 @@ const LcscLabel = (() => {
 })();
 
 const ComponentSpecs = (() => {
-  const fields = ['kind','value','tolerance','voltage','tempCoeff','power','brand','operatingTemp','frequency','datasheet'];
+  const fields = ['kind','value','tolerance','voltage','tempCoeff','power','brand','operatingTemp','frequency','datasheet','current','overloadVoltage','clampVoltage','breakdownVoltage','standOffVoltage','peakCurrent','peakPower','inputVoltage','outputVoltage','outputCurrent','drainCurrent','loadCapacitance','frequencyTolerance'];
   const labels = {kind:'器件类型',value:'容值 / 阻值 / 电感量',tolerance:'精度',voltage:'额定电压 / 耐压',tempCoeff:'温度特性 / 温度系数',power:'额定功率',brand:'制造商',operatingTemp:'工作温度',frequency:'频率',datasheet:'数据手册'};
-  const kinds = {capacitor:'电容',resistor:'电阻',inductor:'电感',ic:'芯片',other:'其他'};
+  const kinds = {capacitor:'电容',resistor:'电阻',inductor:'电感',crystal:'晶振',tvs:'TVS管',zener:'稳压二极管',dcdc:'DC-DC芯片',ldo:'LDO',mosfet:'MOS管',switch:'开关',ic:'IC',other:'其他'};
   const clean = value => typeof value === 'string' || typeof value === 'number' ? String(value).trim() : '';
+  Object.assign(labels,{current:'额定电流',overloadVoltage:'最大过载电压',clampVoltage:'钳位电压',breakdownVoltage:'击穿电压',standOffVoltage:'反向截止电压',peakCurrent:'峰值脉冲电流',peakPower:'峰值脉冲功率',inputVoltage:'输入 / 工作电压',outputVoltage:'输出电压',outputCurrent:'输出电流',drainCurrent:'连续漏极电流',loadCapacitance:'负载电容',frequencyTolerance:'频率精度'});
   function descriptionSpecs(description, kind) {
     const text = clean(description);
     const values = {capacitor:/\b\d+(?:\.\d+)?\s*(?:pF|nF|uF|μF|µF|mF|F)\b/i,resistor:/\b\d+(?:\.\d+)?\s*(?:[kKmM]?Ω|[kKmM]?(?:ohms?|Ohms?))/,inductor:/\b\d+(?:\.\d+)?\s*(?:nH|uH|μH|µH|mH|H)\b/i};
     return {
       kind,
       value: text.match(values[kind] || /(?!) /)?.[0] || '',
-      tolerance: text.match(/(?:±|\+\/-)?\s*\d+(?:\.\d+)?%/)?.[0]?.trim() || '',
-      voltage: text.match(/\b\d+(?:\.\d+)?\s*(?:kV|V)\b/)?.[0] || '',
+      tolerance: text.match(/(?:\+\s*\d+(?:\.\d+)?%\s*[/,]?\s*-\s*\d+(?:\.\d+)?%|(?:±|\+\/-)\s*\d+(?:\.\d+)?%)/)?.[0]?.trim() || '',
+      voltage: ['capacitor','resistor'].includes(kind) ? text.match(/\b\d+(?:\.\d+)?\s*(?:kV|V)\b/)?.[0] || '' : '',
       tempCoeff: text.match(/\b(?:C0G|NP0|X[56789][RS]|Y5V|Z5U)\b/i)?.[0]?.toUpperCase() || text.match(/(?:±)?\d+(?:\.\d+)?\s*ppm\s*\/?\s*(?:°C|℃|K)/i)?.[0] || '',
       power: text.match(/\b\d+(?:\.\d+)?\s*(?:mW|W)\b/)?.[0] || '',
       frequency: text.match(/\b\d+(?:\.\d+)?\s*(?:MHz|kHz|GHz|Hz)\b/)?.[0] || ''
@@ -1167,8 +1155,11 @@ const ComponentSpecs = (() => {
     const row = data.components?.find(row => 'C' + Number(row.lcsc) === code);
     if (!row) return null;
     const category = clean(row.category) + ' ' + clean(row.subcategory);
-    const kind = /capacitor/i.test(category) ? 'capacitor' : /resistor/i.test(category) ? 'resistor' : /inductor/i.test(category) ? 'inductor' : /integrated|microcontroller|processor/i.test(category) ? 'ic' : 'other';
-    return {code,name:clean(row.mfr),package:clean(row.package),description:clean(row.description),specs:descriptionSpecs(row.description,kind),source:'jlcsearch 器件目录'};
+    const kind = inferKind(category);
+    const specs = descriptionSpecs(row.description,kind);
+    let extra = row.extra; if (typeof extra === 'string') { try { extra = JSON.parse(extra); } catch { extra = {}; } }
+    applyPairs(specs,pairsFrom(row.attributes || extra?.attributes));
+    return {code,name:clean(row.mfr),package:clean(row.package),category:kind === 'other' ? clean(row.subcategory || row.category) || '其他' : kinds[kind],description:clean(row.description),specs,source:'jlcsearch 器件目录'};
   }
   function fromEasyEda(data, code) {
     const envelope = data.easyeda_component_details;
@@ -1179,25 +1170,357 @@ const ComponentSpecs = (() => {
     if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch { raw = {}; } }
     const attrs = raw?.head?.c_para || {};
     const pre = clean(attrs.pre).toUpperCase();
-    const kind = pre.startsWith('C') ? 'capacitor' : pre.startsWith('R') ? 'resistor' : pre.startsWith('L') ? 'inductor' : pre.startsWith('U') ? 'ic' : 'other';
+    const kind = inferKind(result.category || result.description,attrs);
     const specs = descriptionSpecs(result.description,kind);
     if (['capacitor','resistor','inductor'].includes(kind)) specs.value = clean(attrs.Value) || specs.value;
+    if (kind === 'crystal') specs.frequency = clean(attrs.Value) || specs.frequency;
     specs.brand = clean(attrs.Manufacturer);
+    applyPairs(specs,pairsFrom(Object.fromEntries(Object.entries(attrs).filter(([name]) => name !== 'Value' && Object.values(aliasKeys).some(keys => keys.includes(normalKey(name)))))));
     // EDA footprint prefixes R/C are removed only for known standard chip sizes.
     const packageName = clean(attrs.package).replace(/^[RC](0201|0402|0603|0805|1206|1210|1812|2010|2512)$/,'$1');
-    return {code,name:clean(attrs['Manufacturer Part'] || attrs.name),package:packageName,description:clean(result.description),specs,source:'EasyEDA（jlcsearch 缓存）'};
+    return {code,name:clean(attrs['Manufacturer Part'] || attrs.name),package:packageName,category:kinds[kind],description:clean(result.description),specs,source:'EasyEDA（jlcsearch 缓存）'};
   }
   function merge(primary, fallback) {
     if (!primary) return fallback; if (!fallback) return primary;
     const specs = {...fallback.specs};
-    for (const [key,value] of Object.entries(primary.specs)) if (value) specs[key] = value;
-    return {...fallback,...primary,name:primary.name || fallback.name,package:primary.package || fallback.package,specs,source:'jlcsearch / EasyEDA'};
+    for (const [key,value] of Object.entries(primary.specs)) if (value && (key !== 'kind' || value !== 'other')) specs[key] = value;
+    for (const field of primary.unavailableFields || []) delete specs[field];
+    return {...fallback,...primary,name:primary.name || fallback.name,package:primary.package || fallback.package,specs,source:primary.complete ? primary.source : 'jlcsearch / EasyEDA'};
   }
-  const summary = specs => ['value','tolerance','voltage','tempCoeff','power'].map(key => clean(specs?.[key])).filter(Boolean).join(' / ');
-  const searchText = item => fields.map(key => clean(item.specs?.[key])).join(' ');
-  return {fields,labels,kinds,fromCatalog,fromEasyEda,merge,summary,searchText};
+  const normalKey = value => clean(value).toLowerCase().replace(/[\s_()（）-]/g,'');
+  const aliases = {value:['Capacitance','Resistance','Inductance','容值','阻值','电感量'],tolerance:['Tolerance','精度','公差'],voltage:['Voltage Rating','Voltage Rated','额定电压','最大工作电压','耐压'],tempCoeff:['Temperature Coefficient','温度系数','温度特性'],power:['Power(Watts)','Rated Power','Pd - Power Dissipation','功率','耗散功率(Pd)'],brand:['Manufacturer','制造商'],operatingTemp:['Operating Temperature','Operating Temperature Range','Operating Junction Temperature Range','工作温度','工作结温范围'],frequency:['Frequency','Frequency - Switching','频率','开关频率'],current:['Current Rating','Rated Current','额定电流'],overloadVoltage:['Overload Voltage (Max)','Max Overload Voltage','最大过载电压'],clampVoltage:['Clamping Voltage','钳位电压'],breakdownVoltage:['Voltage - Breakdown','Breakdown Voltage','击穿电压(VBR)'],standOffVoltage:['Reverse Stand-Off Voltage (Vrwm)','反向截止电压(Vrwm)'],peakCurrent:['Peak Pulse Current (Ipp)','峰值脉冲电流(Ipp)'],peakPower:['Peak Pulse Power Dissipation (Ppp)','峰值脉冲功率(Ppp)'],inputVoltage:['Operating Voltage','Input Voltage','工作电压','输入电压'],outputVoltage:['Output Voltage','输出电压'],outputCurrent:['Output Current','输出电流'],drainCurrent:['Continuous Drain Current','连续漏极电流'],loadCapacitance:['Load Capacitance','负载电容'],frequencyTolerance:['Frequency Tolerance','Frequency Accuracy','频率精度']};
+  const aliasKeys = Object.fromEntries(Object.entries(aliases).map(([field,names]) => [field,names.map(normalKey)]));
+  function inferKind(category = '', attrs = {}) {
+    const text = clean(category).toLowerCase();
+    for (const [pattern,kind] of [[/tvs|surge|esd|瞬态|浪涌/,'tvs'],[/zener|稳压二极管/,'zener'],[/dc.?dc|switching regulator|buck|boost|降压|升压/,'dcdc'],[/low dropout|\bldo\b/,'ldo'],[/crystal|oscillator|晶振|谐振器/,'crystal'],[/mosfet|mos管/,'mosfet'],[/switch|开关/,'switch'],[/capacitor|电容/,'capacitor'],[/resistor|电阻/,'resistor'],[/inductor|电感/,'inductor'],[/integrated|microcontroller|processor|芯片/,'ic']]) if (pattern.test(text)) return kind;
+    const pre = clean(attrs.pre).toUpperCase(), pkg = clean(attrs.package), value = clean(attrs.Value);
+    if (pre.startsWith('R') || /^R\d{4}/.test(pkg) || /(?:Ω|ohms?|^\d+(?:\.\d+)?[RkKM]$)/i.test(value)) return 'resistor';
+    if (pre.startsWith('C') || /^C\d{4}/.test(pkg) || /\d\s*(?:[pnumµμ]?F)$/i.test(value)) return 'capacitor';
+    if (pre.startsWith('L') || /\d\s*(?:[numµμ]?H)$/i.test(value)) return 'inductor';
+    if (pre.startsWith('Y') || pre.startsWith('X') || /\d\s*(?:MHz|kHz|Hz)$/i.test(value)) return 'crystal';
+    if (pre.startsWith('U')) return 'ic'; return 'other';
+  }
+  function pairsFrom(value) {
+    if (typeof value === 'string') { try { value = JSON.parse(value); } catch { return []; } }
+    if (Array.isArray(value)) return value.map(p => ({name:clean(p.paramName || p.name || p.parameterName || p.paramNameEn),key:clean(p.paramNameEn || p.key || p.name || p.parameterName || p.paramName),value:clean(p.paramValue || p.value || p.parameterValue || p.paramValueEn)}));
+    return value && typeof value === 'object' ? Object.entries(value).filter(([,v]) => ['string','number'].includes(typeof v)).map(([name,v]) => ({name,key:name,value:clean(v)})) : [];
+  }
+  function applyPairs(specs,pairs) {
+    const extras = [], unavailable = [];
+    for (const pair of pairs) {
+      if (!pair.name) continue;
+      const field = Object.keys(aliasKeys).find(field => aliasKeys[field].includes(normalKey(pair.name)) || aliasKeys[field].includes(normalKey(pair.key)));
+      const missing = !pair.value || /^(?:-|--|n\/a|none|null)$/i.test(pair.value);
+      if (field && !missing) specs[field] = pair.value;
+      else if (field && missing) { delete specs[field]; unavailable.push(field); extras.push({...pair,value:'未提供'}); }
+      else extras.push({...pair,value:missing ? '未提供' : pair.value});
+    }
+    if (extras.length) specs.extraParams = extras; return unavailable;
+  }
+  function fromOfficial(data,code) {
+    const row = data.result; if (!row || clean(row.productCode).toUpperCase() !== code) return null;
+    const kind = inferKind(row.catalogName), specs = {kind,brand:clean(row.brandNameEn),datasheet:clean(row.pdfUrl)};
+    const unavailableFields = applyPairs(specs,pairsFrom(row.paramVOList || row.productParamVOList));
+    const source = data.source === 'LCSC official parameter snapshot' ? '立创官方参数快照（备用）' : data.source === 'LCSC product parameters' ? '立创官方完整参数' : data.source || '立创官方完整参数';
+    return {code,name:clean(row.productModel),package:clean(row.encapStandard),category:kind === 'other' ? clean(row.catalogName) || '其他' : kinds[kind],specs,unavailableFields,source,fetchedAt:data.fetchedAt || Date.now(),complete:true};
+  }
+  function displayName(result) {
+    const value = ['capacitor','resistor','inductor'].includes(result.specs?.kind) ? clean(result.specs.value) : result.specs?.kind === 'crystal' ? clean(result.specs.frequency) : '';
+    const name = clean(result.name); return value && !name.toLowerCase().includes(value.toLowerCase()) ? `${value} ${name}`.trim() : name;
+  }
+  const summary = specs => ['value','frequency','tolerance','voltage','current','tempCoeff','power','clampVoltage','peakCurrent','outputCurrent'].map(key => clean(specs?.[key])).filter(Boolean).join(' / ');
+  const searchText = item => [...fields.map(key => clean(item.specs?.[key])),...(item.specs?.extraParams || []).flatMap(p => [p.name,p.value])].join(' ');
+  return {fields,labels,kinds,fromOfficial,fromCatalog,fromEasyEda,merge,displayName,summary,searchText,pairsFrom};
 })();
 
+const PRODUCT_SNAPSHOTS = {
+  "C19077606": {
+    "result": {
+      "productCode": "C19077606",
+      "productModel": "SMCJ28CA",
+      "encapStandard": "SMC(DO-214AB)",
+      "catalogName": "TVS Diodes",
+      "brandNameEn": "R+O",
+      "pdfUrl": "https://datasheet.lcsc.com/datasheet/pdf/63434cf44d11833c6d7a145dda2ad39c.pdf?productCode=C19077606",
+      "paramVOList": [
+        {
+          "paramName": "钳位电压",
+          "paramNameEn": "Clamping Voltage",
+          "paramValue": "45.4V",
+          "paramValueEn": "45.4V"
+        },
+        {
+          "paramName": "工作温度",
+          "paramNameEn": "Operating Temperature",
+          "paramValue": "-55℃~+150℃",
+          "paramValueEn": "-55℃~+150℃"
+        },
+        {
+          "paramName": "峰值脉冲电流(Ipp)",
+          "paramNameEn": "Peak Pulse Current (Ipp)",
+          "paramValue": "33.1A@10/1000us",
+          "paramValueEn": "33.1A@10/1000us"
+        },
+        {
+          "paramName": "峰值脉冲功率(Ppp)",
+          "paramNameEn": "Peak Pulse Power Dissipation (Ppp)",
+          "paramValue": "1.5kW@10/1000us",
+          "paramValueEn": "1.5kW@10/1000us"
+        },
+        {
+          "paramName": "通道数",
+          "paramNameEn": "Number of Channels",
+          "paramValue": "单路",
+          "paramValueEn": "1"
+        },
+        {
+          "paramName": "击穿电压(VBR)",
+          "paramNameEn": "Voltage - Breakdown",
+          "paramValue": "34.4V",
+          "paramValueEn": "34.4V"
+        },
+        {
+          "paramName": "晶体管类型",
+          "paramNameEn": "type",
+          "paramValue": "TVS",
+          "paramValueEn": "TVS"
+        },
+        {
+          "paramName": "反向电流(Ir)",
+          "paramNameEn": "Reverse Leakage Current (Ir)",
+          "paramValue": "1uA",
+          "paramValueEn": "1uA"
+        },
+        {
+          "paramName": "极性",
+          "paramNameEn": "Polarity",
+          "paramValue": "双向",
+          "paramValueEn": "Bidirectional"
+        },
+        {
+          "paramName": "反向截止电压(Vrwm)",
+          "paramNameEn": "Reverse Stand-Off Voltage (Vrwm)",
+          "paramValue": "28V",
+          "paramValueEn": "28V"
+        }
+      ]
+    },
+    "source": "LCSC official parameter snapshot",
+    "fetchedAt": 1791975289350
+  },
+  "C2932744": {
+    "result": {
+      "productCode": "C2932744",
+      "productModel": "BZT52C12",
+      "encapStandard": "SOD-123",
+      "catalogName": "Single Zener Diodes",
+      "brandNameEn": "GOODWORK",
+      "pdfUrl": "https://datasheet.lcsc.com/datasheet/pdf/8883b9b9819391a77758e3aff6723c03.pdf?productCode=C2932744",
+      "paramVOList": [
+        {
+          "paramName": "二极管配置",
+          "paramNameEn": "Diode Configuration",
+          "paramValue": "1个独立式",
+          "paramValueEn": "1 Independent"
+        },
+        {
+          "paramName": "精度",
+          "paramNameEn": "Tolerance",
+          "paramValue": "-",
+          "paramValueEn": "-"
+        },
+        {
+          "paramName": "工作结温范围",
+          "paramNameEn": "Operating Junction Temperature Range",
+          "paramValue": "-65℃~+150℃",
+          "paramValueEn": "-65℃~+150℃"
+        },
+        {
+          "paramName": "耗散功率(Pd)",
+          "paramNameEn": "Pd - Power Dissipation",
+          "paramValue": "500mW",
+          "paramValueEn": "500mW"
+        },
+        {
+          "paramName": "反向电流(Ir)",
+          "paramNameEn": "Reverse Leakage Current (Ir)",
+          "paramValue": "100nA@8V",
+          "paramValueEn": "100nA@8V"
+        },
+        {
+          "paramName": "阻抗(Zzt)",
+          "paramNameEn": "Impedance(Zzt)",
+          "paramValue": "25Ω",
+          "paramValueEn": "25Ω"
+        },
+        {
+          "paramName": "稳压值(范围值)",
+          "paramNameEn": "Zener Voltage(Range)",
+          "paramValue": "11.4V~12.7V",
+          "paramValueEn": "11.4V~12.7V"
+        },
+        {
+          "paramName": "稳压值(标称值)",
+          "paramNameEn": "Zener Voltage(Nom)",
+          "paramValue": "12V",
+          "paramValueEn": "12V"
+        },
+        {
+          "paramName": "阻抗(Zzk)",
+          "paramNameEn": "Impedance(Zzk)",
+          "paramValue": "150Ω",
+          "paramValueEn": "150Ω"
+        }
+      ]
+    },
+    "source": "LCSC official parameter snapshot",
+    "fetchedAt": 1791975289351
+  },
+  "C4944084": {
+    "result": {
+      "productCode": "C4944084",
+      "productModel": "SY8511BADC",
+      "encapStandard": "TSOT-23-6",
+      "catalogName": "Voltage Regulators - DC DC Switching Regulators",
+      "brandNameEn": "Silergy",
+      "pdfUrl": "https://datasheet.lcsc.com/datasheet/pdf/2981041c473290697ff9f45635207e9d.pdf?productCode=C4944084",
+      "paramVOList": [
+        {
+          "paramName": "工作温度",
+          "paramNameEn": "Operating Temperature",
+          "paramValue": "-40℃~+125℃",
+          "paramValueEn": "-40℃~+125℃"
+        },
+        {
+          "paramName": "功能类型",
+          "paramNameEn": "Function",
+          "paramValue": "降压型",
+          "paramValueEn": "Step-down type"
+        },
+        {
+          "paramName": "开关频率",
+          "paramNameEn": "Frequency - Switching",
+          "paramValue": "200kHz",
+          "paramValueEn": "200kHz"
+        },
+        {
+          "paramName": "输出通道数",
+          "paramNameEn": "Number of Outputs",
+          "paramValue": "1",
+          "paramValueEn": "1"
+        },
+        {
+          "paramName": "功能特性",
+          "paramNameEn": "Features",
+          "paramValue": "逐波限流;打嗝限流",
+          "paramValueEn": "Cycle-by-cycle current limiting;Hiccup current limiting"
+        },
+        {
+          "paramName": "拓扑结构",
+          "paramNameEn": "Topology",
+          "paramValue": "降压式",
+          "paramValueEn": "Buck"
+        },
+        {
+          "paramName": "输出类型",
+          "paramNameEn": "Output Type",
+          "paramValue": "可调",
+          "paramValueEn": "Adjustable"
+        },
+        {
+          "paramName": "工作电压",
+          "paramNameEn": "Operating Voltage",
+          "paramValue": "4.5V~100V",
+          "paramValueEn": "4.5V~100V"
+        },
+        {
+          "paramName": "开关管(内置/外置)",
+          "paramNameEn": "Switch tube (built-in/external)",
+          "paramValue": "内置",
+          "paramValueEn": "Built-in"
+        },
+        {
+          "paramName": "输出电压",
+          "paramNameEn": "Output Voltage",
+          "paramValue": "-",
+          "paramValueEn": "-"
+        },
+        {
+          "paramName": "输出电流",
+          "paramNameEn": "Output Current",
+          "paramValue": "1.2A",
+          "paramValueEn": "1.2A"
+        },
+        {
+          "paramName": "静态电流(Iq)",
+          "paramNameEn": "Quiescent Current",
+          "paramValue": "150uA",
+          "paramValueEn": "150uA"
+        }
+      ]
+    },
+    "source": "LCSC official parameter snapshot",
+    "fetchedAt": 1791975289351
+  },
+  "C2933235": {
+    "result": {
+      "productCode": "C2933235",
+      "productModel": "FRC0603F5232TS",
+      "encapStandard": "0603",
+      "catalogName": "Chip Resistor - Surface Mount",
+      "brandNameEn": "FOJAN",
+      "pdfUrl": "https://datasheet.lcsc.com/datasheet/pdf/106fb934f95f063b695dad1b31b1eab8.pdf?productCode=C2933235",
+      "paramVOList": [
+        {
+          "paramName": "功率",
+          "paramNameEn": "Power(Watts)",
+          "paramValue": "100mW",
+          "paramValueEn": "100mW"
+        },
+        {
+          "paramName": "阻值",
+          "paramNameEn": "Resistance",
+          "paramValue": "52.3kΩ",
+          "paramValueEn": "52.3kΩ"
+        },
+        {
+          "paramName": "最大工作电压",
+          "paramNameEn": "Voltage Rating",
+          "paramValue": "75V",
+          "paramValueEn": "75V"
+        },
+        {
+          "paramName": "电阻类型",
+          "paramNameEn": "Type",
+          "paramValue": "厚膜电阻",
+          "paramValueEn": "Thick Film Resistor"
+        },
+        {
+          "paramName": "温度系数",
+          "paramNameEn": "Temperature Coefficient",
+          "paramValue": "±100ppm/℃",
+          "paramValueEn": "±100ppm/℃"
+        },
+        {
+          "paramName": "精度",
+          "paramNameEn": "Tolerance",
+          "paramValue": "±1%",
+          "paramValueEn": "±1%"
+        },
+        {
+          "paramName": "工作温度",
+          "paramNameEn": "Operating Temperature",
+          "paramValue": "-55℃~+155℃",
+          "paramValueEn": "-55℃~+155℃"
+        }
+      ]
+    },
+    "source": "LCSC official parameter snapshot",
+    "fetchedAt": 1791975289352
+  }
+};
+const PARAMETER_API_URL = "https://component-parameters-exsheeper11.rubbishmaster11.chatgpt.site"
+;
 
     // -------------------------------------------------------------------------
     // 数据定义区域 (不要删除以下数组结构 — 保持与独立 App 导出正则 100% 兼容)
@@ -1515,6 +1838,7 @@ const ComponentSpecs = (() => {
 
     // --- 核心渲染逻辑 ---
     function render() {
+        refreshCategoryControls();
         // 1. 顶部 4 维遥测指标计算
         document.getElementById('st-total').innerText = db.length;
         const totalPieces = db.reduce((acc, i) => acc + (parseInt(i.qty) || 0), 0);
@@ -1529,7 +1853,7 @@ const ComponentSpecs = (() => {
         let unlocatedCount = 0;
         let totalValue = 0;
         const tagCounts = {};
-        const catCounts = { All: db.length };
+        const catCounts = Object.create(null); catCounts.All = db.length;
 
         db.forEach(i => {
             const loc = WarehouseCore.location(i);
@@ -1563,14 +1887,14 @@ const ComponentSpecs = (() => {
         const sideCatEl = document.getElementById('sidebar-cat-list');
         const currentCatSel = document.getElementById('filter-sel').value;
         if (sideCatEl) {
-            sideCatEl.innerHTML = Object.keys(CAT_META).map(catKey => {
+            sideCatEl.innerHTML = ['All',...inventoryCategories()].map(catKey => {
                 const count = catCounts[catKey] || 0;
                 const isActive = (currentCatSel === catKey && activeFilter !== 'Low');
                 return `
-                    <button class="side-nav-btn ${isActive ? 'active' : ''}" onclick="filterByCategoryFromSidebar('${catKey}')" style="justify-content:space-between; padding:7px 12px; font-size:12px;">
+                    <button class="side-nav-btn ${isActive ? 'active' : ''}" onclick="filterByCategoryFromSidebar(${inlineArg(catKey)})" style="justify-content:space-between; padding:7px 12px; font-size:12px;">
                         <span style="display:flex; align-items:center; gap:8px;">
-                            <span style="width:7px; height:7px; border-radius:50%; background:${CAT_META[catKey].color};"></span>
-                            <span>${CAT_META[catKey].label}</span>
+                            <span style="width:7px; height:7px; border-radius:50%; background:${categoryColor(catKey)};"></span>
+                            <span>${escapeHtml(categoryLabel(catKey))}</span>
                         </span>
                         <span class="mono" style="font-size:11px; opacity:0.75;">${count}</span>
                     </button>
@@ -1627,7 +1951,7 @@ const ComponentSpecs = (() => {
             }
             if (tokens.length === 0) return true;
             const lcsc = extractLcsc(i);
-            const text = `${i.name} ${i.model||''} ${i.loc||''} ${i.desc||''} ${lcsc} ${ComponentSpecs.searchText(i)}`.toLowerCase();
+            const text = `${i.name} ${i.mpn||''} ${i.model||''} ${i.loc||''} ${i.desc||''} ${lcsc} ${categoryLabel(i.cat)} ${ComponentSpecs.searchText(i)}`.toLowerCase();
             return tokens.every(token => text.includes(token));
         });
 
@@ -1681,7 +2005,7 @@ const ComponentSpecs = (() => {
                     <tr class="${isSel ? 'selected' : ''}" data-id="${i.id}" tabindex="0" aria-label="${escapeHtml(i.name)}" onclick="${selectMode ? `toggleSelect(${i.id})` : `openModal(${i.id})`}">
                         <td><span class="item-name">${hl(i.name)}</span><span class="item-note">${hl(ComponentSpecs.summary(i.specs))}${ComponentSpecs.summary(i.specs) && i.desc ? ' / ' : ''}${hl(i.desc)}</span></td>
                         <td><span class="pkg">${hl(i.model || '-')}</span></td>
-                        <td><span class="cat-badge">${escapeHtml(CAT_META[i.cat]?.label || i.cat)}</span></td>
+                        <td><span class="cat-badge">${escapeHtml(categoryLabel(i.cat))}</span></td>
                         <td><span class="loc" onclick="event.stopPropagation();filterByLoc(${inlineArg(WarehouseCore.location(i))})">${hl(i.loc || '待入库')}</span></td>
                         <td class="mono" style="font-size:12px;">${lcsc ? `<a href="${escapeHtml(WarehouseCore.safeUrl(i.link) || ('https://item.szlcsc.com/product/detail/'+lcsc+'.html'))}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;" onclick="event.stopPropagation()">${hl(lcsc)} ↗</a>` : '-'}</td>
                         <td><span class="status-pill ${i.qty <= 0 ? 'empty' : low ? 'low' : ''}">${i.qty <= 0 ? '暂无库存' : low ? '需补货' : '库存充足'}</span></td>
@@ -1757,7 +2081,7 @@ const ComponentSpecs = (() => {
                         <div class="card-meta">
                             <div class="tag-row">
                                 <div class="recent-dot" style="display:${isRecent ? 'block' : 'none'}" title="24小时内更新"></div>
-                                <span class="cat-badge">${escapeHtml(CAT_META[i.cat]?.label || i.cat)}</span>
+                                <span class="cat-badge">${escapeHtml(categoryLabel(i.cat))}</span>
                                 ${low ? `<span style="font-size:10px; color:var(--danger); font-weight:700;">低于阈值(${minQ})</span>` : ''}
                             </div>
                             <span class="loc" title="点击按此储位过滤" onpointerdown="event.stopPropagation()" onpointerup="event.stopPropagation()" onclick="event.stopPropagation();filterByLoc(${inlineArg(WarehouseCore.location(i))})">${hl(i.loc || '待入库')}</span>
@@ -2120,7 +2444,8 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
 
     function saveBatchEdit() {
         const newLoc = document.getElementById('be-loc').value.trim();
-        const newCat = document.getElementById('be-cat').value;
+        const newCatRaw = document.getElementById('be-cat').value.trim();
+        const newCat = newCatRaw ? categoryValue(newCatRaw) : '';
         const newMinQty = document.getElementById('be-minqty').value.trim();
 
         if (!newLoc && !newCat && newMinQty === '') { closeBatchEdit(); return; }
@@ -2206,16 +2531,15 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
             lgd.innerHTML = '';
             return;
         }
-        let c = {}; db.forEach(i => c[i.cat] = (c[i.cat] || 0) + 1);
+        let c = Object.create(null); db.forEach(i => c[i.cat] = (c[i.cat] || 0) + 1);
         let acc = 0, svgH = '', lgdH = '';
         Object.keys(c).forEach(k => {
             let p = (c[k] / t) * 100;
-            let col = (CAT_META[k] && CAT_META[k].color) || '#38bdf8';
-            let label = (CAT_META[k] && CAT_META[k].label) || k;
-            svgH += `<circle class="chart-segment" onclick="filterByCategoryFromSidebar('${k}')" cx="50" cy="50" r="15.915" fill="transparent" stroke="${col}" stroke-width="5.2" stroke-dasharray="${p} ${100-p}" stroke-dashoffset="-${acc}"><title>${label}: ${c[k]} 种 (${p.toFixed(1)}%)</title></circle>`;
+            let col = categoryColor(k), label = escapeHtml(categoryLabel(k));
+            svgH += `<circle class="chart-segment" onclick="filterByCategoryFromSidebar(${inlineArg(k)})" cx="50" cy="50" r="15.915" fill="transparent" stroke="${col}" stroke-width="5.2" stroke-dasharray="${p} ${100-p}" stroke-dashoffset="-${acc}"><title>${label}: ${c[k]} 种 (${p.toFixed(1)}%)</title></circle>`;
             acc += p;
             lgdH += `
-                <div class="legend-item" onclick="filterByCategoryFromSidebar('${k}')">
+                <div class="legend-item" onclick="filterByCategoryFromSidebar(${inlineArg(k)})">
                     <span style="display:flex; align-items:center; gap:8px;">
                         <span class="legend-dot" style="background:${col}"></span>
                         <span>${label}</span>
@@ -2419,7 +2743,7 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
             document.getElementById('e-name').value = i.name || '';
             document.getElementById('e-model').value = i.model || '';
             document.getElementById('e-loc').value = i.loc || '';
-            document.getElementById('e-cat').value = i.cat || 'Other';
+            document.getElementById('e-cat').value = categoryLabel(i.cat || 'Other');
             document.getElementById('e-lcsc').value = extractLcsc(i);
             document.getElementById('e-qty').value = i.qty ?? 0;
             document.getElementById('e-minqty').value = getMinQty(i);
@@ -2429,7 +2753,7 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
             document.getElementById('btn-del').style.display = 'inline-flex';
         } else {
             document.getElementById('modal-title-text').innerText = '录入新元器件';
-            document.getElementById('e-cat').value = document.getElementById('filter-sel').value === 'All' ? 'Other' : document.getElementById('filter-sel').value;
+            document.getElementById('e-cat').value = categoryLabel(document.getElementById('filter-sel').value === 'All' ? 'Other' : document.getElementById('filter-sel').value);
             document.getElementById('e-id').value = '';
             document.getElementById('e-name').value = '';
             document.getElementById('e-model').value = '';
@@ -2459,7 +2783,7 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
         const name = document.getElementById('e-name').value.trim();
         const model = document.getElementById('e-model').value.trim();
         const loc = document.getElementById('e-loc').value.trim();
-        const cat = document.getElementById('e-cat').value;
+        const cat = categoryValue(document.getElementById('e-cat').value);
         const lcsc = document.getElementById('e-lcsc').value.trim().toUpperCase();
         const desc = document.getElementById('e-desc').value.trim();
         let link = document.getElementById('e-link').value.trim();
@@ -2549,11 +2873,11 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
             });
             copy(text);
         } else if (type === 'csv') {
-            const headers = ['Name','Footprint','Category','Location','LCSC_Part','Quantity','MinQty','UnitPrice','Description','Link','PartType','Value','Tolerance','Voltage','TemperatureCoefficient','Power','Manufacturer','OperatingTemperature','Frequency','Datasheet','ParameterSource','ParameterCode','ParameterFetchedAt'];
+            const headers = ['Name','Footprint','Category','Location','LCSC_Part','Quantity','MinQty','UnitPrice','Description','Link','PartType','Value','Tolerance','Voltage','TemperatureCoefficient','Power','Manufacturer','OperatingTemperature','Frequency','Datasheet',...ComponentSpecs.fields.slice(10),'ExtraParameters','ParameterSource','ParameterCode','ParameterFetchedAt','ManufacturerPartNumber'];
             const rows = db.map(i => [
                 i.name || '', i.model || '', i.cat || '', i.loc || '',
                 extractLcsc(i), i.qty ?? 0, getMinQty(i), i.price ?? '',
-                i.desc || '', i.link || '',...ComponentSpecs.fields.map(key => i.specs?.[key] || ''),i.specSource || '',i.specCode || '',i.specFetchedAt || ''
+                i.desc || '', i.link || '',...ComponentSpecs.fields.map(key => i.specs?.[key] || ''),JSON.stringify(i.specs?.extraParams || []),i.specSource || '',i.specCode || '',i.specFetchedAt || '',i.mpn || ''
             ].map(WarehouseCore.csvCell).join(','));
             const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
             downloadFile(csvContent, `元器件库存报表_${date}.csv`, 'text/csv;charset=utf-8');
@@ -2646,6 +2970,9 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
             operatingTemp:find(['operatingtemperature','工作温度']),frequency:find(['frequency','频率']),datasheet:find(['datasheet','数据手册']),
             specSource:find(['parametersource']),specCode:find(['parametercode']),specFetchedAt:find(['parameterfetchedat'])
         };
+        ComponentSpecs.fields.slice(10).forEach(key => map[key] = find([key.toLowerCase(),ComponentSpecs.labels[key]]));
+        map.extraParams = find(['extraparameters']);
+        map.mpn = find(['manufacturerpartnumber']);
         if (map.name < 0) { toast('CSV 表头需要 Name / 型号 / 名称列'); return; }
         const ownReport = map.cat >= 0 && map.minQty >= 0;
         const items = [];
@@ -2660,7 +2987,8 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
                 const lcsc = get('lcsc').toUpperCase();
                 const specs = {};
                 for (const key of ComponentSpecs.fields) if (get(key === 'kind' ? 'partType' : key)) specs[key] = get(key === 'kind' ? 'partType' : key);
-                const parameterFields = map.partType >= 0 || Object.keys(specs).length ? {specs,specSource:get('specSource'),specCode:get('specCode'),specFetchedAt:Number(get('specFetchedAt')) || 0} : {};
+                if (get('extraParams')) { const extra = JSON.parse(get('extraParams')); if (!Array.isArray(extra)) throw new Error('额外参数须为数组'); if (extra.length) specs.extraParams = extra; }
+                const parameterFields = map.partType >= 0 || Object.keys(specs).length ? {specs,specSource:get('specSource'),specCode:get('specCode'),specFetchedAt:Number(get('specFetchedAt')) || 0,...(map.mpn >= 0 ? {mpn:get('mpn')} : {})} : {};
                 items.push({id:Date.now()+index+Math.random(), name:get('name'), model:get('model'), qty, cat:get('cat') || inferred,...parameterFields,
                     lcsc, loc:get('loc'), minQty:get('minQty') || 5, price:get('price'), desc:map.desc >= 0 ? get('desc') : get('manufacturer'),
                     link:get('link') || (lcsc ? `https://item.szlcsc.com/product/detail/${lcsc}.html` : ''), time:Date.now()});
@@ -2712,6 +3040,32 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
         toastTimer = setTimeout(() => { t.classList.remove('show'); }, 3500);
     }
 
+
+    function categoryLabel(value) {
+        return Object.hasOwn(CAT_META,value) ? CAT_META[value].label : String(value || '其他元件');
+    }
+    function categoryValue(value) {
+        const text = String(value || '').trim().slice(0,120);
+        if (!text || text === 'All') return 'Other';
+        return Object.keys(CAT_META).find(key => key !== 'All' && CAT_META[key].label === text) || text;
+    }
+    function categoryColor(value) {
+        if (Object.hasOwn(CAT_META,value)) return CAT_META[value].color;
+        const palette = ['#60a5fa','#a78bfa','#34d399','#fbbf24','#f472b6','#94a3b8'];
+        let hash = 0; for (const char of value) hash = (Math.imul(hash,31)+char.codePointAt(0)) >>> 0;
+        return palette[hash % palette.length];
+    }
+    function inventoryCategories() {
+        return [...new Set([...Object.keys(CAT_META).filter(key => key !== 'All'),...db.map(item => item.cat)])];
+    }
+    function refreshCategoryControls() {
+        const filter = document.getElementById('filter-sel'), selected = filter.value || 'All';
+        const categories = inventoryCategories();
+        filter.replaceChildren(new Option('全部分类','All'),...categories.map(key => new Option(categoryLabel(key),key)));
+        filter.value = categories.includes(selected) ? selected : 'All';
+        const suggestions = [...new Set([...categories.map(categoryLabel),'电阻','电容','电感','晶振','IC','开关','TVS管','稳压二极管','DC-DC芯片','LDO','MOS管'])];
+        document.getElementById('category-options').replaceChildren(...suggestions.map(label => new Option(label,label)));
+    }
 
     let visibleIds = [];
     let searchTimer;
@@ -2947,7 +3301,7 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
         document.getElementById('e-name').value = existing?.name || parsed.name || parsed.lcsc;
         document.getElementById('e-lcsc').value = parsed.lcsc;
         document.getElementById('e-model').value = existing?.model || parsed.footprint;
-        document.getElementById('e-cat').value = existing?.cat || parsed.category;
+        document.getElementById('e-cat').value = categoryLabel(existing?.cat || parsed.category);
         document.getElementById('e-loc').value = existing?.loc || (activeLocFilter && activeLocFilter !== '待入库' ? activeLocFilter : '');
         document.getElementById('e-qty').value = parsed.qty ?? '';
         document.getElementById('e-qty').min = '1';
@@ -2959,7 +3313,7 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
         document.getElementById('scan-entry-note').hidden = false;
         if (parsed.metadata) {
             parameterState.result = parsed.metadata; applyParameterResult();
-            if (existing?.name) document.getElementById('e-name').value = existing.name;
+            if (existing?.name) document.getElementById('e-name').value = ComponentSpecs.displayName({...parsed.metadata,name:existing.name});
         }
     }
     function saveScannedItem() {
@@ -2976,7 +3330,7 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
         if (duplicate && !ticket.allowDuplicate) {
             showConfirm('这个包装码已经入库过', '再次保存会增加库存。仅在确认是另一包相同包装码的实物时继续。','normal',() => { if (pendingScanTicket === ticket) { ticket.allowDuplicate = true; saveScannedItem(); } }); return;
         }
-        const attrs = {name:get('name'),model:get('model'),loc:get('loc'),cat:get('cat'),lcsc,qty,minQty,price,desc:get('desc'),link:get('link'),time:Date.now(),...readSpecFields()};
+        const attrs = {name:get('name'),model:get('model'),loc:get('loc'),cat:categoryValue(get('cat')),lcsc,qty,minQty,price,desc:get('desc'),link:get('link'),time:Date.now(),...readSpecFields()};
         const same = item => extractLcsc(item) === lcsc && WarehouseCore.location(item) === WarehouseCore.location(attrs) && item.model === attrs.model;
         const target = db.find(item => item.id === ticket.targetId && same(item)) || db.find(same);
         if (target && !Number.isSafeInteger(target.qty + qty)) { toast('入库后的数量过大，请检查'); return; }
@@ -2992,8 +3346,26 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
     document.addEventListener('visibilitychange',() => { if (document.hidden && scanState.stream) { stopScanCamera(); scanMessage('相机已暂停，返回后点击启动相机。'); } });
     window.addEventListener('pagehide',stopScanCamera);
 
-    const parameterState = {seq:0,controller:null,result:null,source:'',code:'',fetchedAt:0};
+    const parameterState = {seq:0,controller:null,result:null,source:'',code:'',fetchedAt:0,mpn:''};
     const parameterCache = new Map();
+    function initParameterFields() {
+        const root = document.getElementById('param-advanced-fields');
+        for (const field of ComponentSpecs.fields.slice(10)) {
+            const group = document.createElement('div'); group.className = 'form-group';
+            const label = document.createElement('label'); label.className = 'form-label'; label.htmlFor = 'e-spec-'+field; label.textContent = ComponentSpecs.labels[field];
+            const input = document.createElement('input'); input.id = 'e-spec-'+field; input.className = 'form-input';
+            group.append(label,input); root.append(group);
+        }
+        const kind = document.getElementById('e-spec-kind');
+        kind.replaceChildren(new Option('未指定',''),...Object.entries(ComponentSpecs.kinds).map(([value,label]) => new Option(label,value)));
+    }
+    function addExtraParameterRow(parameter = {}) {
+        const row = document.createElement('div'); row.className = 'parameter-extra-row';
+        const name = document.createElement('input'); name.className = 'form-input param-extra-name'; name.placeholder = '参数名称'; name.value = parameter.name || ''; name.setAttribute('aria-label','参数名称');
+        const value = document.createElement('input'); value.className = 'form-input param-extra-value'; value.placeholder = '参数值与单位'; value.value = parameter.value || ''; value.setAttribute('aria-label','参数值与单位');
+        const remove = document.createElement('button'); remove.className = 'b-btn b-btn-outline'; remove.textContent = '删除'; remove.onclick = () => row.remove();
+        row.dataset.key = parameter.key || ''; row.append(name,value,remove); document.getElementById('param-extra-table').append(row);
+    }
     function cancelParameterQuery() {
         parameterState.seq++; parameterState.controller?.abort(); parameterState.controller = null;
         document.getElementById('param-query-button').disabled = false;
@@ -3001,7 +3373,11 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
     function resetParameterForm(specs = {}, provenance = {}) {
         cancelParameterQuery(); parameterState.result = null;
         for (const field of ComponentSpecs.fields) document.getElementById('e-spec-' + field).value = specs[field] || '';
+        document.getElementById('param-extra-table').replaceChildren();
+        (specs.extraParams || []).forEach(addExtraParameterRow);
+        document.getElementById('param-advanced').open = ComponentSpecs.fields.slice(10).some(field => specs[field]) || !!specs.extraParams?.length;
         parameterState.source = provenance.specSource || ''; parameterState.code = provenance.specCode || ''; parameterState.fetchedAt = provenance.specFetchedAt || 0;
+        parameterState.mpn = provenance.mpn || '';
         document.getElementById('param-query-preview').hidden = true;
         document.getElementById('param-query-status').textContent = parameterState.source ? `参数来源：${parameterState.source}。保存前请核对。` : '按立创 C 编号读取参数，也可以手动填写。';
     }
@@ -3010,7 +3386,9 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
         for (const field of ComponentSpecs.fields) {
             const value = document.getElementById('e-spec-' + field).value.trim(); if (value) specs[field] = value;
         }
-        return {specs,specSource:parameterState.source || '手动填写',specCode:parameterState.code,specFetchedAt:parameterState.fetchedAt};
+        const extras = [...document.querySelectorAll('.parameter-extra-row')].map(row => ({name:row.querySelector('.param-extra-name').value.trim(),key:row.dataset.key,value:row.querySelector('.param-extra-value').value.trim()})).filter(p => p.name);
+        if (extras.length) specs.extraParams = extras;
+        return {specs,specSource:parameterState.source || '手动填写',specCode:parameterState.code,specFetchedAt:parameterState.fetchedAt,mpn:parameterState.mpn};
     }
     function validateSpecFields(code) {
         if (parameterState.code && parameterState.code !== code) { toast('立创编号已改变，请重新读取参数，或清空后填写'); return false; }
@@ -3018,9 +3396,9 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
         if (datasheet && !WarehouseCore.safeUrl(datasheet)) { toast('数据手册链接请使用 http:// 或 https://'); return false; }
         return true;
     }
-    async function fetchComponentParameters(code, signal) {
+    async function fetchComponentParameters(code, signal, force = false) {
         if (!/^C\d{3,12}$/.test(code)) throw new Error('请填写有效的立创 C 编号');
-        if (parameterCache.has(code)) return parameterCache.get(code);
+        if (!force && parameterCache.has(code) && Date.now()-parameterCache.get(code).fetchedAt < 60000) return parameterCache.get(code);
         const timeout = new AbortController(); const timer = setTimeout(() => timeout.abort(),12000);
         const abort = () => timeout.abort(); signal?.addEventListener('abort',abort,{once:true});
         if (signal?.aborted) timeout.abort();
@@ -3030,22 +3408,48 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
             return extract(await response.json(),code);
         };
         try {
-            const responses = await Promise.allSettled([
+            const requests = [
                 request(`https://jlcsearch.tscircuit.com/components/list.json?search=${encodeURIComponent(code)}`,ComponentSpecs.fromCatalog),
                 request(`https://jlcsearch.tscircuit.com/api/easyeda_components/${encodeURIComponent(code)}`,ComponentSpecs.fromEasyEda)
-            ]);
-            if (timeout.signal.aborted) throw new Error('查询已取消或超时，可手动填写后入库');
+            ];
+            if (typeof PARAMETER_API_URL !== 'undefined' && PARAMETER_API_URL) requests.push(request(`${PARAMETER_API_URL}/api/part?code=${encodeURIComponent(code)}`,ComponentSpecs.fromOfficial));
+            const responses = await Promise.allSettled(requests);
+            if (signal?.aborted) throw new Error('查询已取消');
             const primary = responses[0].status === 'fulfilled' ? responses[0].value : null;
             const fallback = responses[1].status === 'fulfilled' ? responses[1].value : null;
-            const result = ComponentSpecs.merge(primary,fallback);
+            const official = responses[2]?.status === 'fulfilled' ? responses[2].value : null;
+            const snapshot = PRODUCT_SNAPSHOTS[code] ? ComponentSpecs.fromOfficial(PRODUCT_SNAPSHOTS[code],code) : null;
+            let result = ComponentSpecs.merge(official || snapshot,ComponentSpecs.merge(primary,fallback));
             if (!result) throw new Error('未查到这个编号的参数，或服务不可用。可核对数据手册并手动填写。');
-            result.fetchedAt = Date.now(); parameterCache.set(code,result); return result;
+            if (!result.complete && !timeout.signal.aborted) {
+                try { result = ComponentSpecs.merge(await fetchDetailedParameters(result,timeout.signal),result); } catch {}
+            }
+            result.fetchedAt ||= Date.now(); if (result.complete) parameterCache.set(code,result); return result;
         } finally { clearTimeout(timer); signal?.removeEventListener('abort',abort); }
+    }
+    async function fetchDetailedParameters(result,signal) {
+        const routes = {resistor:'resistors',capacitor:'capacitors',inductor:'inductors',crystal:'crystals',tvs:'diodes',zener:'diodes',dcdc:'buck_boost_converters',mosfet:'mosfets',switch:'switches',ldo:'voltage_regulators'};
+        const route = routes[result.specs.kind]; if (!route || !result.package) return null;
+        const query = new URLSearchParams({package:result.package});
+        const match = (result.specs.value || '').match(/^(\d+(?:\.\d+)?)\s*([pnumµμkKM]?)(?:Ω|ohms?|F|H|R)$/i);
+        if (match) {
+            const scales = {p:1e-12,n:1e-9,u:1e-6,µ:1e-6,μ:1e-6,m:1e-3,k:1e3,K:1e3,M:1e6};
+            const filter = {resistor:'resistance',capacitor:'capacitance',inductor:'inductance'}[result.specs.kind];
+            if (filter) query.set(filter,String(Number(match[1]) * (scales[match[2]] || 1)));
+        }
+        const response = await fetch(`https://jlcsearch.tscircuit.com/${route}/list.json?${query}`,{signal,credentials:'omit'});
+        if (!response.ok) return null;
+        const data = await response.json(); const rows = Object.values(data).find(Array.isArray) || [];
+        const row = rows.find(row => 'C'+Number(row.lcsc) === result.code); if (!row) return null;
+        const detail = ComponentSpecs.fromCatalog({components:[{...row,category:ComponentSpecs.kinds[result.specs.kind]}]},result.code);
+        if (detail) detail.source = 'jlcsearch 分类参数表'; return detail;
     }
     function parameterSummaryRows(result, hideName = false) {
         const rows = hideName ? [['封装',result.package]] : [['厂家型号',result.name],['封装',result.package]];
         const compactLabels = {value:{capacitor:'容值',resistor:'阻值',inductor:'电感量'}[result.specs.kind] || '标称值',voltage:'额定电压',tempCoeff:result.specs.kind === 'capacitor' ? '温度特性' : '温度系数'};
         for (const key of ComponentSpecs.fields.filter(key => key !== 'kind' && key !== 'datasheet')) if (result.specs[key]) rows.push([compactLabels[key] || ComponentSpecs.labels[key],result.specs[key]]);
+        (result.specs.extraParams || []).forEach(p => rows.push([p.name,p.value]));
+        if (result.category) rows.push(['分类',result.category]);
         return rows.map(([label,value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value || '未提供')}</dd></div>`).join('');
     }
     async function queryParameterForm() {
@@ -3056,7 +3460,7 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
         document.getElementById('param-query-preview').hidden = true;
         document.getElementById('param-query-button').disabled = true; status.textContent = `正在读取 ${code || '元器件'} 的型号、封装与参数…`;
         try {
-            const result = await fetchComponentParameters(code,parameterState.controller.signal);
+            const result = await fetchComponentParameters(code,parameterState.controller.signal,true);
             if (seq !== parameterState.seq || !document.getElementById('modal-mask').classList.contains('open') || document.getElementById('e-lcsc').value.trim().toUpperCase() !== code) return;
             parameterState.result = result;
             document.getElementById('param-preview-list').innerHTML = parameterSummaryRows(result);
@@ -3068,11 +3472,16 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
     function applyParameterResult() {
         const result = parameterState.result;
         if (!result || document.getElementById('e-lcsc').value.trim().toUpperCase() !== result.code) { toast('编号已改变，请重新查询'); return; }
-        if (result.name) document.getElementById('e-name').value = result.name;
+        if (result.name) document.getElementById('e-name').value = ComponentSpecs.displayName(result);
         if (result.package) document.getElementById('e-model').value = result.package;
-        if (['capacitor','resistor','inductor'].includes(result.specs.kind)) document.getElementById('e-cat').value = 'Passive';
+        if (result.category) document.getElementById('e-cat').value = result.category;
         for (const field of ComponentSpecs.fields) if (result.specs[field]) document.getElementById('e-spec-' + field).value = result.specs[field];
+        for (const field of result.unavailableFields || []) document.getElementById('e-spec-'+field).value = '';
+        document.getElementById('param-extra-table').replaceChildren();
+        (result.specs.extraParams || []).forEach(addExtraParameterRow);
+        document.getElementById('param-advanced').open = ComponentSpecs.fields.slice(10).some(field => result.specs[field]) || !!result.specs.extraParams?.length;
         parameterState.code = result.code; parameterState.source = result.source; parameterState.fetchedAt = result.fetchedAt;
+        parameterState.mpn = result.name || '';
         document.getElementById('param-query-status').textContent = `已应用 ${result.code} 的参数。请核对数值与封装，再保存入库。`;
         document.getElementById('param-query-preview').hidden = true;
     }
@@ -3089,6 +3498,7 @@ CH340N USB转串口,SOP-8,1,C2977777,U5`;
         } catch (error) { if (scanState.result === parsed) document.getElementById('scan-param-status').textContent = error.message; }
     }
 
+initParameterFields();
 init();</script>
 </body>
 </html>
